@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:joy;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: false
+    show-sql: false
+
+jwt:
+  secret: test_jwt_secret_key_min_32_chars_test_jwt_secret
+  access-expiration: 1800000
+  refresh-expiration: 604800000
+  refresh-cookie-name: JOY_REFRESH_TOKEN

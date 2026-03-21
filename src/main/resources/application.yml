@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: joy-church-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/joy
+    username: joy_user
+    password: your_password
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
+jwt:
+  secret: your_jwt_secret_key_min_32_chars_your_jwt_secret_key
+  access-expiration: 1800000
+  refresh-expiration: 604800000
+  refresh-cookie-name: JOY_REFRESH_TOKEN
+
+aws:
+  s3:
+    bucket: joy-church-files
+    region: ap-northeast-2
