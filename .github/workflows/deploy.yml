@@ -18,6 +18,7 @@ jobs:
             set -e
             cd ${{ secrets.EC2_APP_DIR }}
             git pull origin main
-            ./gradlew build -x test
+            ./gradlew --stop || true
+            ./gradlew build -x test --no-daemon
             sudo systemctl restart joy-backend
             sudo systemctl status joy-backend --no-pager
