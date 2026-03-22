@@ -8,5 +8,7 @@ import java.util.List;
 public interface TeamRoleRepository extends JpaRepository<TeamRole, Long> {
     List<TeamRole> findByUserId(Long userId);
     boolean existsByUserIdAndLeaderTrue(Long userId);
+    // 새가족팀장 여부 체크용
+    boolean existsByUserIdAndTeamNameAndLeaderTrue(Long userId, String teamName);
     void deleteByUserId(Long userId);
 }

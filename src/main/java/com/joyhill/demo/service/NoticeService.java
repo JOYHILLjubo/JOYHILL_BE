@@ -6,6 +6,7 @@ import com.joyhill.demo.domain.Notice;
 import com.joyhill.demo.repository.NoticeRepository;
 import com.joyhill.demo.security.AuthUser;
 import com.joyhill.demo.web.dto.AuthDtos;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,8 +28,16 @@ public class NoticeService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> list(String tag, String search, int page, int size) {
-        var result = noticeRepository.findByTagContainingIgnoreCaseAndTitleContainingIgnoreCase(tag == null ? "" : tag,
-                search == null ? "" : search, PageRequest.of(page, size));
+        String keyword = search == null ? "" : search;
+        Page<Notice> result;
+
+        // 태그 있으면 exact match, 없으면 전체
+        if (tag != null && !tag.isBlank()) {
+            result = noticeRepository.findByTagAndTitleContainingIgnoreCase(tag, keyword, PageRequest.of(page, size));
+        } else {
+            result = noticeRepository.findByTitleContainingIgnoreCase(keyword, PageRequest.of(page, size));
+        }
+
         return Map.of(
                 "content", result.getContent().stream().map(this::toMap).toList(),
                 "page", result.getNumber(),

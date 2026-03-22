@@ -116,11 +116,28 @@ public class AuthService {
     }
 
     public AuthDtos.UserSummary toSummary(User user) {
-        var teamRoles = teamRoleRepository.findByUserId(user.getId()).stream()
-                .map(teamRole -> new AuthDtos.TeamRoleSummary(teamRole.getTeamName(), teamRole.isLeader()))
+        var teamRoleEntities = teamRoleRepository.findByUserId(user.getId());
+
+        // teams: 소속된 모든 팀 이름
+        List<String> teams = teamRoleEntities.stream()
+                .map(tr -> tr.getTeamName())
                 .toList();
-        List<String> teams = teamRoles.stream().map(AuthDtos.TeamRoleSummary::teamName).toList();
-        return new AuthDtos.UserSummary(user.getId(), user.getName(), user.getRole(), user.getFamName(), user.getVillageName(),
-                teams, teamRoles, user.getPhone());
+
+        // teamRoles: 팀장인 팀 이름만 (프론트에서 user.teamRoles.includes("찬양팀") 형태로 사용)
+        List<String> teamRoles = teamRoleEntities.stream()
+                .filter(tr -> tr.isLeader())
+                .map(tr -> tr.getTeamName())
+                .toList();
+
+        return new AuthDtos.UserSummary(
+                user.getId(),
+                user.getName(),
+                user.getRole(),
+                user.getFamName(),
+                user.getVillageName(),
+                teams,
+                teamRoles,
+                user.getPhone()
+        );
     }
 }

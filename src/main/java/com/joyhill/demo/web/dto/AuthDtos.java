@@ -18,11 +18,10 @@ public final class AuthDtos {
     public record LoginResponse(String accessToken, UserSummary user) {
     }
 
-    public record UserSummary(Long id, String name, Role role, String fam, String village, List<String> teams,
-                              List<TeamRoleSummary> teamRoles, String phone) {
-    }
-
-    public record TeamRoleSummary(String teamName, boolean isLeader) {
+    // teamRoles: 팀장인 팀 이름 목록 (프론트 user.teamRoles.includes("찬양팀") 형태로 사용)
+    // teams: 소속된 모든 팀 이름 목록
+    public record UserSummary(Long id, String name, Role role, String fam, String village,
+                              List<String> teams, List<String> teamRoles, String phone) {
     }
 
     public record TokenResponse(String accessToken) {

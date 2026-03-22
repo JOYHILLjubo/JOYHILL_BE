@@ -191,26 +191,35 @@ public class OrganizationService {
         if (current == targetRole) {
             return;
         }
+
+        // 강등 체크: 리더 → 팸원 (본인 이름 제외한 팸원이 있으면 강등 불가)
         if (current == Role.leader && targetRole == Role.member) {
-            if (famMemberRepository.countByFamNameAndIdNot(user.getFamName(), -1L) > 0) {
+            if (famMemberRepository.countByFamNameAndNameNot(user.getFamName(), user.getName()) > 0) {
                 throw new ApiException(ErrorCode.DEMOTION_BLOCKED, "팸원이 남아 있어 강등할 수 없습니다.");
             }
         }
+
+        // 강등 체크: 마을장 → 리더 (팸이 있으면 강등 불가)
         if (current == Role.village_leader && targetRole == Role.leader) {
             if (famRepository.countByVillageName(user.getVillageName()) > 0) {
                 throw new ApiException(ErrorCode.DEMOTION_BLOCKED, "팸이 남아 있어 강등할 수 없습니다.");
             }
         }
+
+        // 승급: 팸원 → 리더 (팸 자동 생성)
         if (current == Role.member && targetRole == Role.leader) {
             String famName = KoreanNameGenerator.famName(user.getName());
             famRepository.findByName(famName).orElseGet(() -> famRepository.save(new Fam(famName, user.getVillageName(), user.getName())));
             user.setFamName(famName);
         }
+
+        // 승급: 리더 → 마을장 (마을 자동 생성)
         if (current == Role.leader && targetRole == Role.village_leader) {
             String villageName = KoreanNameGenerator.villageName(user.getName());
             villageRepository.findByName(villageName).orElseGet(() -> villageRepository.save(new Village(villageName, user.getName())));
             user.setVillageName(villageName);
         }
+
         user.setRole(targetRole);
     }
 

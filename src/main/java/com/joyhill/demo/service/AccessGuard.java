@@ -48,8 +48,12 @@ public class AccessGuard {
         throw new ApiException(ErrorCode.FORBIDDEN, "공지 작성 권한이 없습니다.");
     }
 
+    // 새가족 관리: 리더 이상 또는 새가족팀 팀장만 가능
     public void requireNewcomerManager(AuthUser user) {
-        if (user.role().atLeast(Role.leader) || teamRoleRepository.existsByUserIdAndLeaderTrue(user.userId())) {
+        if (user.role().atLeast(Role.leader)) {
+            return;
+        }
+        if (teamRoleRepository.existsByUserIdAndTeamNameAndLeaderTrue(user.userId(), "새가족팀")) {
             return;
         }
         throw new ApiException(ErrorCode.FORBIDDEN, "새가족 관리 권한이 없습니다.");
