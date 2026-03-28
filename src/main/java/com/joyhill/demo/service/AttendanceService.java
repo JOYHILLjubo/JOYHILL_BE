@@ -4,6 +4,7 @@ import com.joyhill.demo.common.api.ErrorCode;
 import com.joyhill.demo.common.exception.ApiException;
 import com.joyhill.demo.domain.Attendance;
 import com.joyhill.demo.domain.Fam;
+import com.joyhill.demo.domain.Role;
 import com.joyhill.demo.repository.AttendanceRepository;
 import com.joyhill.demo.repository.FamMemberRepository;
 import com.joyhill.demo.repository.FamRepository;
@@ -26,8 +27,10 @@ public class AttendanceService {
     private final FamRepository famRepository;
     private final AccessGuard accessGuard;
 
-    public AttendanceService(AttendanceRepository attendanceRepository, FamMemberRepository famMemberRepository,
-                             FamRepository famRepository, AccessGuard accessGuard) {
+    public AttendanceService(AttendanceRepository attendanceRepository,
+                             FamMemberRepository famMemberRepository,
+                             FamRepository famRepository,
+                             AccessGuard accessGuard) {
         this.attendanceRepository = attendanceRepository;
         this.famMemberRepository = famMemberRepository;
         this.famRepository = famRepository;
@@ -38,7 +41,8 @@ public class AttendanceService {
     public List<Map<String, Object>> get(AuthUser authUser, String famName, LocalDate date) {
         accessGuard.requireLeader(authUser);
         accessGuard.requireFamScope(authUser, famName);
-        return attendanceRepository.findByFamNameAndDate(famName, date).stream().map(this::toMap).toList();
+        return attendanceRepository.findByFamNameAndDate(famName, date).stream()
+                .map(this::toMap).toList();
     }
 
     public void save(AuthUser authUser, AuthDtos.AttendanceSaveRequest request) {
@@ -46,7 +50,8 @@ public class AttendanceService {
         accessGuard.requireFamScope(authUser, request.famName());
         for (var record : request.records()) {
             attendanceRepository.findByFamMemberIdAndDate(record.famMemberId(), request.date())
-                    .ifPresentOrElse(attendance -> update(attendance, request.famName(), request.date(), record),
+                    .ifPresentOrElse(
+                            attendance -> update(attendance, request.famName(), request.date(), record),
                             () -> {
                                 Attendance attendance = new Attendance();
                                 update(attendance, request.famName(), request.date(), record);
@@ -61,50 +66,67 @@ public class AttendanceService {
         accessGuard.requireFamScope(authUser, famName);
         LocalDate from = LocalDate.of(year, month, 1);
         LocalDate to = from.withDayOfMonth(from.lengthOfMonth());
-        return attendanceRepository.findByFamNameAndDateBetween(famName, from, to).stream().map(this::toMap).toList();
+        return attendanceRepository.findByFamNameAndDateBetween(famName, from, to).stream()
+                .map(this::toMap).toList();
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> stats(AuthUser authUser, String scope, String famName, String villageName, String period) {
+    public Map<String, Object> stats(AuthUser authUser, String scope, String famName,
+                                     String villageName, String period) {
         LocalDate to = LocalDate.now();
-        LocalDate from = switch (period == null ? "1month" : period) {
-            case "3month" -> to.minusMonths(3);
-            case "6month" -> to.minusMonths(6);
-            default -> to.minusMonths(1);
-        };
+        LocalDate from = parsePeriod(period, to);
+
         List<Attendance> rows;
+
         if ("all".equals(scope)) {
-            if (!(authUser.role().name().equals("pastor") || authUser.role().name().equals("admin"))) {
+            if (!(authUser.role() == Role.pastor || authUser.role() == Role.admin)) {
                 throw new ApiException(ErrorCode.FORBIDDEN, "전체 통계 권한이 없습니다.");
             }
             rows = attendanceRepository.findByDateBetween(from, to);
+
         } else if ("village".equals(scope)) {
-            accessGuard.requireRoleAtLeast(authUser, com.joyhill.demo.domain.Role.village_leader);
-            accessGuard.requireVillageScope(authUser, villageName == null ? authUser.villageName() : villageName);
-            List<String> famNames = famRepository.findByVillageName(villageName == null ? authUser.villageName() : villageName).stream()
+            accessGuard.requireRoleAtLeast(authUser, Role.village_leader);
+            String targetVillage = villageName == null ? authUser.villageName() : villageName;
+            accessGuard.requireVillageScope(authUser, targetVillage);
+            List<String> famNames = famRepository.findByVillageName(targetVillage).stream()
                     .map(Fam::getName).toList();
             rows = attendanceRepository.findByFamNameInAndDateBetween(famNames, from, to);
+
         } else {
             String targetFam = famName == null ? authUser.famName() : famName;
             accessGuard.requireFamScope(authUser, targetFam);
             rows = attendanceRepository.findByFamNameAndDateBetween(targetFam, from, to);
         }
+
         long total = rows.size();
         long worship = rows.stream().filter(Attendance::isWorshipPresent).count();
         long fam = rows.stream().filter(Attendance::isFamPresent).count();
+
         Map<String, Object> result = new HashMap<>();
         result.put("scope", scope);
         result.put("period", period);
+        result.put("from", from);
+        result.put("to", to);
         result.put("totalRecords", total);
         result.put("worshipPresent", worship);
         result.put("famPresent", fam);
-        result.put("worshipRate", total == 0 ? 0.0 : (double) worship / total);
-        result.put("famRate", total == 0 ? 0.0 : (double) fam / total);
+        result.put("worshipRate", total == 0 ? 0.0 : Math.round((double) worship / total * 100.0));
+        result.put("famRate", total == 0 ? 0.0 : Math.round((double) fam / total * 100.0));
         return result;
     }
 
-    private void update(Attendance attendance, String famName, LocalDate date, AuthDtos.AttendanceRecordRequest record) {
-        famMemberRepository.findById(record.famMemberId()).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸원을 찾을 수 없습니다."));
+    private LocalDate parsePeriod(String period, LocalDate to) {
+        return switch (period == null ? "1month" : period) {
+            case "3month" -> to.minusMonths(3);
+            case "6month" -> to.minusMonths(6);
+            default -> to.minusMonths(1);
+        };
+    }
+
+    private void update(Attendance attendance, String famName, LocalDate date,
+                        AuthDtos.AttendanceRecordRequest record) {
+        famMemberRepository.findById(record.famMemberId())
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸원을 찾을 수 없습니다."));
         attendance.setFamMemberId(record.famMemberId());
         attendance.setFamName(famName);
         attendance.setDate(date);

@@ -29,14 +29,22 @@ public class UserService {
     private final OrganizationService organizationService;
     private final AuthService authService;
 
-    public UserService(UserRepository userRepository, TeamRoleRepository teamRoleRepository, PasswordEncoder passwordEncoder,
-                       AccessGuard accessGuard, OrganizationService organizationService, AuthService authService) {
+    public UserService(UserRepository userRepository, TeamRoleRepository teamRoleRepository,
+                       PasswordEncoder passwordEncoder, AccessGuard accessGuard,
+                       OrganizationService organizationService, AuthService authService) {
         this.userRepository = userRepository;
         this.teamRoleRepository = teamRoleRepository;
         this.passwordEncoder = passwordEncoder;
         this.accessGuard = accessGuard;
         this.organizationService = organizationService;
         this.authService = authService;
+    }
+
+    // 현재 로그인 유저 정보
+    @Transactional(readOnly = true)
+    public AuthDtos.UserSummary me(AuthUser authUser) {
+        User user = getUser(authUser.userId());
+        return authService.toSummary(user);
     }
 
     @Transactional(readOnly = true)
@@ -66,6 +74,7 @@ public class UserService {
         user.setRole(request.role());
         user.setFamName(request.famName());
         user.setVillageName(request.villageName());
+        user.setPasswordChanged(false);
         userRepository.save(user);
         replaceTeams(user.getId(), request.teams(), request.teamRoles());
         return toMap(user);
@@ -94,9 +103,7 @@ public class UserService {
 
     private void replaceTeams(Long userId, List<String> teams, List<String> teamLeaders) {
         teamRoleRepository.deleteByUserId(userId);
-        if (teams == null) {
-            return;
-        }
+        if (teams == null) return;
         for (String team : teams) {
             boolean isLeader = teamLeaders != null && teamLeaders.contains(team);
             teamRoleRepository.save(new TeamRole(userId, team, isLeader));
@@ -104,7 +111,8 @@ public class UserService {
     }
 
     private User getUser(Long id) {
-        return userRepository.findById(id).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
     }
 
     private Map<String, Object> toMap(User user) {

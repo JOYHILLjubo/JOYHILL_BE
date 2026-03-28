@@ -29,8 +29,9 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
 
-    public AuthService(UserRepository userRepository, TeamRoleRepository teamRoleRepository, PasswordEncoder passwordEncoder,
-                       JwtTokenProvider jwtTokenProvider, JwtProperties jwtProperties) {
+    public AuthService(UserRepository userRepository, TeamRoleRepository teamRoleRepository,
+                       PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider,
+                       JwtProperties jwtProperties) {
         this.userRepository = userRepository;
         this.teamRoleRepository = teamRoleRepository;
         this.passwordEncoder = passwordEncoder;
@@ -68,8 +69,7 @@ public class AuthService {
     }
 
     public void logout(AuthUser authUser) {
-        User user = getUser(authUser.userId());
-        user.setRefreshToken(null);
+        getUser(authUser.userId()).setRefreshToken(null);
     }
 
     public void changePassword(AuthUser authUser, AuthDtos.ChangePasswordRequest request) {
@@ -78,66 +78,45 @@ public class AuthService {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "현재 비밀번호가 일치하지 않습니다.");
         }
         user.setPassword(passwordEncoder.encode(request.newPassword()));
+        user.setPasswordChanged(true);  // 최초 로그인 플래그 업데이트
     }
 
     public ResponseCookie refreshCookie(String refreshToken) {
         return ResponseCookie.from(jwtProperties.getRefreshCookieName(), refreshToken)
-                .httpOnly(true)
-                .path("/")
+                .httpOnly(true).path("/")
                 .maxAge(jwtProperties.getRefreshExpiration() / 1000)
-                .sameSite("Lax")
-                .build();
+                .sameSite("Lax").build();
     }
 
     public ResponseCookie deleteRefreshCookie() {
         return ResponseCookie.from(jwtProperties.getRefreshCookieName(), "")
-                .httpOnly(true)
-                .path("/")
-                .maxAge(0)
-                .sameSite("Lax")
-                .build();
+                .httpOnly(true).path("/").maxAge(0).sameSite("Lax").build();
     }
 
     private String extractRefreshToken(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            throw new ApiException(ErrorCode.UNAUTHORIZED, "리프레시 토큰이 없습니다.");
-        }
+        if (cookies == null) throw new ApiException(ErrorCode.UNAUTHORIZED, "리프레시 토큰이 없습니다.");
         for (Cookie cookie : cookies) {
-            if (jwtProperties.getRefreshCookieName().equals(cookie.getName())) {
-                return cookie.getValue();
-            }
+            if (jwtProperties.getRefreshCookieName().equals(cookie.getName())) return cookie.getValue();
         }
         throw new ApiException(ErrorCode.UNAUTHORIZED, "리프레시 토큰이 없습니다.");
     }
 
     private User getUser(Long id) {
-        return userRepository.findById(id).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
     }
 
     public AuthDtos.UserSummary toSummary(User user) {
         var teamRoleEntities = teamRoleRepository.findByUserId(user.getId());
-
-        // teams: 소속된 모든 팀 이름
-        List<String> teams = teamRoleEntities.stream()
-                .map(tr -> tr.getTeamName())
-                .toList();
-
-        // teamRoles: 팀장인 팀 이름만 (프론트에서 user.teamRoles.includes("찬양팀") 형태로 사용)
+        List<String> teams = teamRoleEntities.stream().map(tr -> tr.getTeamName()).toList();
         List<String> teamRoles = teamRoleEntities.stream()
-                .filter(tr -> tr.isLeader())
-                .map(tr -> tr.getTeamName())
-                .toList();
-
+                .filter(tr -> tr.isLeader()).map(tr -> tr.getTeamName()).toList();
         return new AuthDtos.UserSummary(
-                user.getId(),
-                user.getName(),
-                user.getRole(),
-                user.getFamName(),
-                user.getVillageName(),
-                teams,
-                teamRoles,
-                user.getPhone()
+                user.getId(), user.getName(), user.getRole(),
+                user.getFamName(), user.getVillageName(),
+                teams, teamRoles, user.getPhone(),
+                user.isPasswordChanged()
         );
     }
 }

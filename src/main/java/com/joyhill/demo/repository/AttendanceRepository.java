@@ -13,4 +13,6 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     List<Attendance> findByFamNameAndDateBetween(String famName, LocalDate from, LocalDate to);
     List<Attendance> findByFamNameInAndDateBetween(List<String> famNames, LocalDate from, LocalDate to);
     List<Attendance> findByDateBetween(LocalDate from, LocalDate to);
+    List<Attendance> findByFamMemberIdAndDateBetween(Long famMemberId, LocalDate from, LocalDate to);
+    List<Attendance> findByFamMemberIdInAndDateBetween(List<Long> famMemberIds, LocalDate from, LocalDate to);
 }

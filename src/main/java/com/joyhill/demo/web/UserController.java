@@ -3,6 +3,7 @@ package com.joyhill.demo.web;
 import com.joyhill.demo.common.api.BaseResponse;
 import com.joyhill.demo.domain.Role;
 import com.joyhill.demo.security.AuthUser;
+import com.joyhill.demo.service.AuthService;
 import com.joyhill.demo.service.UserService;
 import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,9 +17,17 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final AuthService authService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, AuthService authService) {
         this.userService = userService;
+        this.authService = authService;
+    }
+
+    // 현재 로그인 유저 정보
+    @GetMapping("/me")
+    public BaseResponse<AuthDtos.UserSummary> me(@AuthenticationPrincipal AuthUser authUser) {
+        return BaseResponse.success(userService.me(authUser));
     }
 
     @GetMapping
@@ -35,13 +44,15 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public BaseResponse<Map<String, Object>> update(@AuthenticationPrincipal AuthUser authUser, @PathVariable Long id,
+    public BaseResponse<Map<String, Object>> update(@AuthenticationPrincipal AuthUser authUser,
+                                                    @PathVariable Long id,
                                                     @RequestBody AuthDtos.UserUpdateRequest request) {
         return BaseResponse.success(userService.update(authUser, id, request));
     }
 
     @PatchMapping("/{id}/role")
-    public BaseResponse<Void> changeRole(@AuthenticationPrincipal AuthUser authUser, @PathVariable Long id,
+    public BaseResponse<Void> changeRole(@AuthenticationPrincipal AuthUser authUser,
+                                         @PathVariable Long id,
                                          @RequestBody AuthDtos.RoleUpdateRequest request) {
         userService.changeRole(authUser, id, request);
         return BaseResponse.success();

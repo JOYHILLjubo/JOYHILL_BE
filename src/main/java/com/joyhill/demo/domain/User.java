@@ -42,71 +42,35 @@ public class User extends BaseTimeEntity {
     @Column(name = "refresh_token", columnDefinition = "TEXT")
     private String refreshToken;
 
-    public Long getId() {
-        return id;
-    }
+    @Column(name = "is_password_changed", nullable = false)
+    private boolean passwordChanged = false;
 
-    public String getName() {
-        return name;
-    }
+    public Long getId() { return id; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public String getPhone() {
-        return phone;
-    }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
 
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
-    public String getPassword() {
-        return password;
-    }
+    public String getBirth() { return birth; }
+    public void setBirth(String birth) { this.birth = birth; }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
 
-    public String getBirth() {
-        return birth;
-    }
+    public String getFamName() { return famName; }
+    public void setFamName(String famName) { this.famName = famName; }
 
-    public void setBirth(String birth) {
-        this.birth = birth;
-    }
+    public String getVillageName() { return villageName; }
+    public void setVillageName(String villageName) { this.villageName = villageName; }
 
-    public Role getRole() {
-        return role;
-    }
+    public String getRefreshToken() { return refreshToken; }
+    public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
 
-    public void setRole(Role role) {
-        this.role = role;
-    }
-
-    public String getFamName() {
-        return famName;
-    }
-
-    public void setFamName(String famName) {
-        this.famName = famName;
-    }
-
-    public String getVillageName() {
-        return villageName;
-    }
-
-    public void setVillageName(String villageName) {
-        this.villageName = villageName;
-    }
-
-    public String getRefreshToken() {
-        return refreshToken;
-    }
-
-    public void setRefreshToken(String refreshToken) {
-        this.refreshToken = refreshToken;
-    }
+    public boolean isPasswordChanged() { return passwordChanged; }
+    public void setPasswordChanged(boolean passwordChanged) { this.passwordChanged = passwordChanged; }
 }

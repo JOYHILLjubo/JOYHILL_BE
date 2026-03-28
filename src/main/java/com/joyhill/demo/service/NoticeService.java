@@ -13,10 +13,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @Transactional
 public class NoticeService {
+
+    private static final Set<String> ALLOWED_TAGS = Set.of("행사", "안내", "소식", "신청");
 
     private final NoticeRepository noticeRepository;
     private final AccessGuard accessGuard;
@@ -26,18 +29,18 @@ public class NoticeService {
         this.accessGuard = accessGuard;
     }
 
+    // 공지 목록 — pinned 먼저, 최신 순 정렬
     @Transactional(readOnly = true)
     public Map<String, Object> list(String tag, String search, int page, int size) {
         String keyword = search == null ? "" : search;
         Page<Notice> result;
-
-        // 태그 있으면 exact match, 없으면 전체
         if (tag != null && !tag.isBlank()) {
-            result = noticeRepository.findByTagAndTitleContainingIgnoreCase(tag, keyword, PageRequest.of(page, size));
+            result = noticeRepository.findByTagAndTitleContainingIgnoreCaseOrderByPinnedDescCreatedAtDesc(
+                    tag, keyword, PageRequest.of(page, size));
         } else {
-            result = noticeRepository.findByTitleContainingIgnoreCase(keyword, PageRequest.of(page, size));
+            result = noticeRepository.findByTitleContainingIgnoreCaseOrderByPinnedDescCreatedAtDesc(
+                    keyword, PageRequest.of(page, size));
         }
-
         return Map.of(
                 "content", result.getContent().stream().map(this::toMap).toList(),
                 "page", result.getNumber(),
@@ -54,6 +57,7 @@ public class NoticeService {
 
     public Map<String, Object> create(AuthUser authUser, AuthDtos.NoticeRequest request) {
         accessGuard.requireNoticeWriter(authUser);
+        validateTag(request.tag());
         Notice notice = new Notice();
         apply(notice, authUser, request);
         noticeRepository.save(notice);
@@ -65,6 +69,7 @@ public class NoticeService {
         if (!notice.getUserId().equals(authUser.userId()) && authUser.role() != com.joyhill.demo.domain.Role.admin) {
             throw new ApiException(ErrorCode.FORBIDDEN, "작성자 또는 관리자만 수정할 수 있습니다.");
         }
+        validateTag(request.tag());
         apply(notice, authUser, request);
         return toMap(notice);
     }
@@ -77,8 +82,15 @@ public class NoticeService {
         noticeRepository.delete(notice);
     }
 
+    private void validateTag(String tag) {
+        if (tag == null || !ALLOWED_TAGS.contains(tag)) {
+            throw new ApiException(ErrorCode.INVALID_TAG, "태그는 행사, 안내, 소식, 신청 중 하나여야 합니다.");
+        }
+    }
+
     private Notice getNotice(Long id) {
-        return noticeRepository.findById(id).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "공지를 찾을 수 없습니다."));
+        return noticeRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "공지를 찾을 수 없습니다."));
     }
 
     private void apply(Notice notice, AuthUser authUser, AuthDtos.NoticeRequest request) {

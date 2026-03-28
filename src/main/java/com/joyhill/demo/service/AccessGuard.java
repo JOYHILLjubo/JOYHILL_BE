@@ -50,38 +50,32 @@ public class AccessGuard {
 
     // 새가족 관리: 리더 이상 또는 새가족팀 팀장만 가능
     public void requireNewcomerManager(AuthUser user) {
-        if (user.role().atLeast(Role.leader)) {
-            return;
-        }
-        if (teamRoleRepository.existsByUserIdAndTeamNameAndLeaderTrue(user.userId(), "새가족팀")) {
-            return;
-        }
+        if (user.role().atLeast(Role.leader)) return;
+        if (teamRoleRepository.existsByUserIdAndTeamNameAndLeaderTrue(user.userId(), "새가족팀")) return;
         throw new ApiException(ErrorCode.FORBIDDEN, "새가족 관리 권한이 없습니다.");
     }
 
+    // 팀 관리: 해당 팀의 팀장 또는 교역자/관리자만 가능
+    public void requireTeamLeaderOrAbove(AuthUser user, String teamName) {
+        if (user.role() == Role.pastor || user.role() == Role.admin) return;
+        if (teamRoleRepository.existsByUserIdAndTeamNameAndLeaderTrue(user.userId(), teamName)) return;
+        throw new ApiException(ErrorCode.FORBIDDEN, "해당 팀을 관리할 권한이 없습니다.");
+    }
+
     public void requireFamScope(AuthUser user, String famName) {
-        if (user.role() == Role.admin || user.role() == Role.pastor) {
-            return;
-        }
-        if (user.role() == Role.leader && famName.equals(user.famName())) {
-            return;
-        }
+        if (user.role() == Role.admin || user.role() == Role.pastor) return;
+        if (user.role() == Role.leader && famName.equals(user.famName())) return;
         if (user.role() == Role.village_leader) {
-            var fam = famRepository.findByName(famName).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸을 찾을 수 없습니다."));
-            if (fam.getVillageName().equals(user.villageName())) {
-                return;
-            }
+            var fam = famRepository.findByName(famName)
+                    .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸을 찾을 수 없습니다."));
+            if (fam.getVillageName().equals(user.villageName())) return;
         }
         throw new ApiException(ErrorCode.FORBIDDEN, "접근 범위를 벗어났습니다.");
     }
 
     public void requireVillageScope(AuthUser user, String villageName) {
-        if (user.role() == Role.admin || user.role() == Role.pastor) {
-            return;
-        }
-        if (user.role() == Role.village_leader && villageName.equals(user.villageName())) {
-            return;
-        }
+        if (user.role() == Role.admin || user.role() == Role.pastor) return;
+        if (user.role() == Role.village_leader && villageName.equals(user.villageName())) return;
         throw new ApiException(ErrorCode.FORBIDDEN, "접근 범위를 벗어났습니다.");
     }
 }
