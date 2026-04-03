@@ -5,6 +5,7 @@ import com.joyhill.demo.common.exception.ApiException;
 import com.joyhill.demo.domain.Prayer;
 import com.joyhill.demo.domain.PrayerType;
 import com.joyhill.demo.repository.PrayerRepository;
+import com.joyhill.demo.repository.UserRepository;
 import com.joyhill.demo.security.AuthUser;
 import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.stereotype.Service;
@@ -19,10 +20,12 @@ import java.util.Map;
 public class PrayerService {
 
     private final PrayerRepository prayerRepository;
+    private final UserRepository userRepository;
     private final AccessGuard accessGuard;
 
-    public PrayerService(PrayerRepository prayerRepository, AccessGuard accessGuard) {
+    public PrayerService(PrayerRepository prayerRepository, UserRepository userRepository, AccessGuard accessGuard) {
         this.prayerRepository = prayerRepository;
+        this.userRepository = userRepository;
         this.accessGuard = accessGuard;
     }
 
@@ -93,6 +96,11 @@ public class PrayerService {
         map.put("year", prayer.getYear());
         map.put("month", prayer.getMonth());
         map.put("week", prayer.getWeek());
+        // 프론트에서 기도제목 작성자 이름 표시를 위해 name 포함
+        String name = userRepository.findById(prayer.getUserId())
+                .map(user -> user.getName())
+                .orElse("");
+        map.put("name", name);
         return map;
     }
 }

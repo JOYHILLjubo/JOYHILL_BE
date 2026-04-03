@@ -36,9 +36,10 @@ out/
 ### VS Code ###
 .vscode/
 
-### Local Config ###
+### Local Config (절대 커밋 금지) ###
 .env
 .env.*
-application-*.local.yml
-application-*.local.yaml
+src/main/resources/application-local.yml
+src/main/resources/application-local.yaml
+src/test/resources/application-test.yml
 *.log
