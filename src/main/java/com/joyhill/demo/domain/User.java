@@ -23,9 +23,11 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, unique = true, length = 20)
     private String phone;
 
-    @Column(nullable = false, length = 255)
+    // 비밀번호 변경 전에는 null, 변경 후 BCrypt 해시 저장
+    @Column(length = 255)
     private String password;
 
+    // 생년월일 6자리 평문 (최초 로그인 인증에 사용)
     @Column(nullable = false, length = 6)
     private String birth;
 

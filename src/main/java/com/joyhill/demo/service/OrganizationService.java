@@ -8,7 +8,6 @@ import com.joyhill.demo.domain.*;
 import com.joyhill.demo.repository.*;
 import com.joyhill.demo.security.AuthUser;
 import com.joyhill.demo.web.dto.AuthDtos;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,23 +24,20 @@ public class OrganizationService {
     private final FamMemberRepository famMemberRepository;
     private final UserRepository userRepository;
     private final AttendanceRepository attendanceRepository;
-    private final PasswordEncoder passwordEncoder;
     private final AccessGuard accessGuard;
 
     public OrganizationService(VillageRepository villageRepository, FamRepository famRepository,
                                FamMemberRepository famMemberRepository, UserRepository userRepository,
                                AttendanceRepository attendanceRepository,
-                               PasswordEncoder passwordEncoder, AccessGuard accessGuard) {
+                               AccessGuard accessGuard) {
         this.villageRepository = villageRepository;
         this.famRepository = famRepository;
         this.famMemberRepository = famMemberRepository;
         this.userRepository = userRepository;
         this.attendanceRepository = attendanceRepository;
-        this.passwordEncoder = passwordEncoder;
         this.accessGuard = accessGuard;
     }
 
-    // ── 전체 조직 구조 ──
     @Transactional(readOnly = true)
     public Map<String, Object> structure() {
         var villages = villageRepository.findAll().stream()
@@ -65,7 +61,6 @@ public class OrganizationService {
         return Map.of("villages", villages);
     }
 
-    // ── 마을 목록 ──
     @Transactional(readOnly = true)
     public List<Map<String, Object>> villages() {
         return villageRepository.findAll().stream().map(v -> {
@@ -76,7 +71,6 @@ public class OrganizationService {
         }).toList();
     }
 
-    // ── 마을 생성 ──
     public Map<String, Object> createVillage(AuthUser authUser, AuthDtos.VillageCreateRequest request) {
         accessGuard.requirePastorOrAdmin(authUser);
         if (villageRepository.findByName(request.name()).isPresent()) {
@@ -86,7 +80,6 @@ public class OrganizationService {
         return Map.of("name", village.getName(), "leaderName", village.getLeaderName() == null ? "" : village.getLeaderName());
     }
 
-    // ── 마을 삭제 ──
     public void deleteVillage(AuthUser authUser, String villageName) {
         accessGuard.requirePastorOrAdmin(authUser);
         if (famRepository.countByVillageName(villageName) > 0) {
@@ -95,7 +88,6 @@ public class OrganizationService {
         villageRepository.deleteByName(villageName);
     }
 
-    // ── 팸 목록 ──
     @Transactional(readOnly = true)
     public List<Map<String, Object>> fams() {
         return famRepository.findAll().stream().map(f -> {
@@ -107,7 +99,6 @@ public class OrganizationService {
         }).toList();
     }
 
-    // ── 팸 생성 ──
     public Map<String, Object> createFam(AuthUser authUser, AuthDtos.FamCreateRequest request) {
         accessGuard.requirePastorOrAdmin(authUser);
         if (famRepository.findByName(request.name()).isPresent()) {
@@ -120,7 +111,6 @@ public class OrganizationService {
                 "leaderName", fam.getLeaderName() == null ? "" : fam.getLeaderName());
     }
 
-    // ── 팸 마을 이동 ──
     public void moveFamVillage(AuthUser authUser, String famName, AuthDtos.FamVillageUpdateRequest request) {
         Fam fam = famRepository.findByName(famName)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸을 찾을 수 없습니다."));
@@ -138,7 +128,6 @@ public class OrganizationService {
                 .forEach(user -> user.setVillageName(request.toVillage()));
     }
 
-    // ── 팸 삭제 ──
     public void deleteFam(AuthUser authUser, String famName) {
         accessGuard.requirePastorOrAdmin(authUser);
         if (famMemberRepository.countByFamName(famName) > 0) {
@@ -147,7 +136,6 @@ public class OrganizationService {
         famRepository.deleteByName(famName);
     }
 
-    // ── 팸원 목록 (출석률 포함) ──
     @Transactional(readOnly = true)
     public List<Map<String, Object>> famMembers(AuthUser authUser, String famName, String period) {
         accessGuard.requireLeader(authUser);
@@ -161,14 +149,12 @@ public class OrganizationService {
         List<com.joyhill.demo.domain.Attendance> attendances =
                 attendanceRepository.findByFamMemberIdInAndDateBetween(memberIds, from, to);
 
-        // memberId → attendance records
         Map<Long, List<com.joyhill.demo.domain.Attendance>> byMember = attendances.stream()
                 .collect(Collectors.groupingBy(com.joyhill.demo.domain.Attendance::getFamMemberId));
 
         return members.stream().map(m -> famMemberMapWithRate(m, byMember.getOrDefault(m.getId(), List.of()))).toList();
     }
 
-    // ── 팸원 추가 ──
     public Map<String, Object> addFamMember(AuthUser authUser, String famName, AuthDtos.FamMemberCreateRequest request) {
         accessGuard.requireLeader(authUser);
         accessGuard.requireFamScope(authUser, famName);
@@ -192,7 +178,7 @@ public class OrganizationService {
             String birth = request.birth() == null ? "000000"
                     : request.birth().format(java.time.format.DateTimeFormatter.ofPattern("yyMMdd"));
             user.setBirth(birth);
-            user.setPassword(passwordEncoder.encode(birth));
+            user.setPassword(null);         // 최초 로그인은 birth로 인증
             user.setRole(member.getRole());
             user.setFamName(famName);
             user.setVillageName(fam.getVillageName());
@@ -202,7 +188,6 @@ public class OrganizationService {
         return famMemberBasicMap(member);
     }
 
-    // ── 팸원 수정 ──
     public Map<String, Object> updateFamMember(AuthUser authUser, Long id, AuthDtos.FamMemberUpdateRequest request) {
         FamMember member = getFamMember(id);
         accessGuard.requireLeader(authUser);
@@ -214,7 +199,6 @@ public class OrganizationService {
         return famMemberBasicMap(member);
     }
 
-    // ── 팸원 역할 변경 ──
     public void updateFamMemberRole(AuthUser authUser, Long id, AuthDtos.RoleUpdateRequest request) {
         FamMember member = getFamMember(id);
         accessGuard.requireRoleAtLeast(authUser, Role.village_leader);
@@ -222,7 +206,6 @@ public class OrganizationService {
         member.setRole(request.role());
     }
 
-    // ── 팸원 삭제 ──
     public void deleteFamMember(AuthUser authUser, Long id) {
         FamMember member = getFamMember(id);
         accessGuard.requireLeader(authUser);
@@ -230,7 +213,6 @@ public class OrganizationService {
         famMemberRepository.delete(member);
     }
 
-    // ── 유저 역할 변경 (UserService → 위임) ──
     public void changeUserRole(AuthUser authUser, Long id, Role targetRole) {
         accessGuard.requireAdmin(authUser);
         User user = userRepository.findById(id)
@@ -263,7 +245,6 @@ public class OrganizationService {
         user.setRole(targetRole);
     }
 
-    // ── 내부 유틸 ──
     private LocalDate parsePeriod(String period, LocalDate to) {
         return switch (period == null ? "1month" : period) {
             case "3month" -> to.minusMonths(3);

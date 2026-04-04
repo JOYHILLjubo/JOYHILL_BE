@@ -43,9 +43,19 @@ public class AuthService {
         String normalizedPhone = PhoneUtils.normalize(request.phone());
         User user = userRepository.findByPhone(normalizedPhone)
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_CREDENTIALS, "전화번호 또는 비밀번호가 일치하지 않습니다."));
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "전화번호 또는 비밀번호가 일치하지 않습니다.");
+
+        if (!user.isPasswordChanged()) {
+            // 최초 로그인: 입력값과 birth(생년월일) 직접 비교
+            if (!request.password().equals(user.getBirth())) {
+                throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "전화번호 또는 비밀번호가 일치하지 않습니다.");
+            }
+        } else {
+            // 이후 로그인: password 컬럼과 BCrypt 비교
+            if (user.getPassword() == null || !passwordEncoder.matches(request.password(), user.getPassword())) {
+                throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "전화번호 또는 비밀번호가 일치하지 않습니다.");
+            }
         }
+
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), user.getRole());
         user.setRefreshToken(refreshToken);
@@ -74,11 +84,20 @@ public class AuthService {
 
     public void changePassword(AuthUser authUser, AuthDtos.ChangePasswordRequest request) {
         User user = getUser(authUser.userId());
-        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
-            throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "현재 비밀번호가 일치하지 않습니다.");
+
+        // 현재 비밀번호 확인: 최초 변경 전이면 birth, 이후면 password(BCrypt)
+        if (!user.isPasswordChanged()) {
+            if (!request.currentPassword().equals(user.getBirth())) {
+                throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "현재 비밀번호(생년월일)가 일치하지 않습니다.");
+            }
+        } else {
+            if (user.getPassword() == null || !passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+                throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "현재 비밀번호가 일치하지 않습니다.");
+            }
         }
+
         user.setPassword(passwordEncoder.encode(request.newPassword()));
-        user.setPasswordChanged(true);  // 최초 로그인 플래그 업데이트
+        user.setPasswordChanged(true);
     }
 
     public ResponseCookie refreshCookie(String refreshToken) {

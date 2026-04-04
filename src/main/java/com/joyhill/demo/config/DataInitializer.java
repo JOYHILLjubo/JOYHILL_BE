@@ -7,7 +7,6 @@ import com.joyhill.demo.repository.*;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 
@@ -24,8 +23,7 @@ public class DataInitializer {
                                FamRepository famRepository,
                                FamMemberRepository famMemberRepository,
                                TeamRoleRepository teamRoleRepository,
-                               TeamRepository teamRepository,
-                               PasswordEncoder passwordEncoder) {
+                               TeamRepository teamRepository) {
         return args -> {
             // ── 팀 초기화 (항상 실행 — 없는 팀만 추가) ──
             for (String teamName : DEFAULT_TEAMS) {
@@ -42,15 +40,16 @@ public class DataInitializer {
             Fam leaderFam = famRepository.save(
                     new Fam(KoreanNameGenerator.famName("김민준"), village.getName(), "김민준"));
 
-            createUser(userRepository, passwordEncoder, "김민준", "010-1111-2222", "950315",
+            // password는 null로 세팅 — 최초 로그인은 birth(생년월일)로 인증
+            createUser(userRepository, "김민준", "010-1111-2222", "950315",
                     Role.leader, leaderFam.getName(), village.getName());
-            createUser(userRepository, passwordEncoder, "박청년", "010-9999-0000", "001225",
+            createUser(userRepository, "박청년", "010-9999-0000", "001225",
                     Role.member, leaderFam.getName(), village.getName());
-            createUser(userRepository, passwordEncoder, "홍성인", "010-3333-4444", "881020",
+            createUser(userRepository, "홍성인", "010-3333-4444", "881020",
                     Role.village_leader, leaderFam.getName(), village.getName());
-            createUser(userRepository, passwordEncoder, "정교역자", "010-5555-6666", "750601",
+            createUser(userRepository, "정교역자", "010-5555-6666", "750601",
                     Role.pastor, null, null);
-            User admin = createUser(userRepository, passwordEncoder, "관리자", "010-7777-8888", "700101",
+            User admin = createUser(userRepository, "관리자", "010-7777-8888", "700101",
                     Role.admin, null, null);
 
             FamMember leaderMember = new FamMember();
@@ -71,18 +70,18 @@ public class DataInitializer {
         };
     }
 
-    private User createUser(UserRepository userRepository, PasswordEncoder passwordEncoder,
+    private User createUser(UserRepository userRepository,
                             String name, String phone, String birth,
                             Role role, String famName, String villageName) {
         User user = new User();
         user.setName(name);
         user.setPhone(PhoneUtils.normalize(phone));
         user.setBirth(birth);
-        user.setPassword(passwordEncoder.encode(birth));
+        user.setPassword(null);         // 최초 로그인 전까지 password는 null
         user.setRole(role);
         user.setFamName(famName);
         user.setVillageName(villageName);
-        user.setPasswordChanged(false);
+        user.setPasswordChanged(false); // 비밀번호 미변경 상태
         return userRepository.save(user);
     }
 }
