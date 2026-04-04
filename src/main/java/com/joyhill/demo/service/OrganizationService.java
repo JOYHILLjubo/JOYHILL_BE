@@ -11,8 +11,10 @@ import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -136,8 +138,10 @@ public class OrganizationService {
     }
 
     /**
-     * 팸원 목록 (출석률 포함)
-     * @param year 연도 지정 시 해당 연도 1/1 ~ 12/31 (현재 연도면 오늘까지), null이면 전체 기간
+     * 팸원 목록 + 출석률
+     * 출석률 기준: 해당 연도 1월 첫째 주 일요일 ~ 오늘(현재 연도) or 12/31(과거 연도)
+     * 분모: 전체 일요일 수 (주 단위)
+     * 분자: 출석한 일요일 수
      */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> famMembers(AuthUser authUser, String famName, Integer year) {
@@ -146,17 +150,12 @@ public class OrganizationService {
 
         List<User> members = userRepository.findByFamName(famName);
 
-        LocalDate from;
-        LocalDate to;
+        int targetYear = (year != null) ? year : LocalDate.now().getYear();
+        LocalDate from = LocalDate.of(targetYear, 1, 1);
+        LocalDate to = (targetYear == LocalDate.now().getYear()) ? LocalDate.now() : LocalDate.of(targetYear, 12, 31);
 
-        if (year != null) {
-            int currentYear = LocalDate.now().getYear();
-            from = LocalDate.of(year, 1, 1);
-            to = (year == currentYear) ? LocalDate.now() : LocalDate.of(year, 12, 31);
-        } else {
-            from = LocalDate.of(2000, 1, 1);
-            to = LocalDate.now();
-        }
+        // 해당 기간의 전체 일요일 수 (출석률 분모)
+        int totalSundays = countSundaysInPeriod(from, to);
 
         List<Long> userIds = members.stream().map(User::getId).toList();
         List<Attendance> attendances = attendanceRepository.findByUserIdInAndDateBetween(userIds, from, to);
@@ -165,7 +164,7 @@ public class OrganizationService {
                 .collect(Collectors.groupingBy(Attendance::getUserId));
 
         return members.stream()
-                .map(m -> userMapWithRate(m, byUser.getOrDefault(m.getId(), List.of())))
+                .map(m -> userMapWithRate(m, byUser.getOrDefault(m.getId(), List.of()), totalSundays))
                 .toList();
     }
 
@@ -197,7 +196,6 @@ public class OrganizationService {
             birth = request.birth().format(DateTimeFormatter.ofPattern("yyMMdd"));
         }
         user.setBirth(birth);
-
         userRepository.save(user);
         return userBasicMap(user);
     }
@@ -229,12 +227,23 @@ public class OrganizationService {
         userRepository.delete(user);
     }
 
+    /**
+     * 역할 변경 (승진/강등)
+     *
+     * 팸원 → 리더:
+     *   기존 팸에서 빠지고, {이름}팸 생성, 해당 팸의 리더로 등록
+     *
+     * 리더 → 마을장:
+     *   기존 팸({이름}팸)을 새 마을({이름}네)로 이동 (팸은 유지, 마을 귀속만 변경)
+     *   마을장은 기존 팸에 소속 유지
+     */
     public void changeUserRole(AuthUser authUser, Long id, Role targetRole) {
         accessGuard.requireAdmin(authUser);
         User user = getUser(id);
         Role current = user.getRole();
         if (current == targetRole) return;
 
+        // ── 강등 가드 ──
         if (current == Role.leader && targetRole == Role.member) {
             if (userRepository.countByFamNameAndNameNot(user.getFamName(), user.getName()) > 0) {
                 throw new ApiException(ErrorCode.DEMOTION_BLOCKED, "팸원이 남아 있어 강등할 수 없습니다.");
@@ -245,19 +254,55 @@ public class OrganizationService {
                 throw new ApiException(ErrorCode.DEMOTION_BLOCKED, "팸이 남아 있어 강등할 수 없습니다.");
             }
         }
+
+        // ── 팸원 → 리더 ──
         if (current == Role.member && targetRole == Role.leader) {
-            String famName = KoreanNameGenerator.famName(user.getName());
-            famRepository.findByName(famName).orElseGet(() ->
-                    famRepository.save(new Fam(famName, user.getVillageName(), user.getName())));
-            user.setFamName(famName);
+            String newFamName = KoreanNameGenerator.famName(user.getName());
+            Fam newFam = famRepository.findByName(newFamName).orElseGet(() ->
+                    famRepository.save(new Fam(newFamName, user.getVillageName(), user.getName())));
+            // 리더 이름 업데이트
+            newFam.setLeaderName(user.getName());
+            // 기존 팸에서 나오고 새 팸으로 이동
+            user.setFamName(newFamName);
         }
+
+        // ── 리더 → 마을장 ──
         if (current == Role.leader && targetRole == Role.village_leader) {
-            String villageName = KoreanNameGenerator.villageName(user.getName());
-            villageRepository.findByName(villageName).orElseGet(() ->
-                    villageRepository.save(new Village(villageName, user.getName())));
-            user.setVillageName(villageName);
+            String newVillageName = KoreanNameGenerator.villageName(user.getName());
+            Village newVillage = villageRepository.findByName(newVillageName).orElseGet(() ->
+                    villageRepository.save(new Village(newVillageName, user.getName())));
+            newVillage.setLeaderName(user.getName());
+
+            // 기존 팸을 새 마을로 이동 (팸 유지, 마을 귀속만 변경)
+            String existingFamName = user.getFamName();
+            if (existingFamName != null) {
+                famRepository.findByName(existingFamName).ifPresent(fam ->
+                        fam.setVillageName(newVillageName));
+                // 팸 소속 모든 유저의 villageName 업데이트
+                userRepository.findByFamName(existingFamName)
+                        .forEach(member -> member.setVillageName(newVillageName));
+            }
+
+            user.setVillageName(newVillageName);
+            // famName은 유지 → 마을장도 기존 팸에 소속
         }
+
         user.setRole(targetRole);
+    }
+
+    // ── 내부 유틸 ──
+
+    /**
+     * 주어진 기간 내 일요일 수 계산 (출석률 분모)
+     * from의 첫 번째 일요일부터 to까지
+     */
+    private int countSundaysInPeriod(LocalDate from, LocalDate to) {
+        LocalDate firstSunday = from;
+        while (firstSunday.getDayOfWeek() != DayOfWeek.SUNDAY) {
+            firstSunday = firstSunday.plusDays(1);
+        }
+        if (firstSunday.isAfter(to)) return 0;
+        return (int) ChronoUnit.WEEKS.between(firstSunday, to) + 1;
     }
 
     private User getUser(Long id) {
@@ -281,17 +326,17 @@ public class OrganizationService {
         return map;
     }
 
-    private Map<String, Object> userMapWithRate(User user, List<Attendance> records) {
+    private Map<String, Object> userMapWithRate(User user, List<Attendance> records, int totalSundays) {
         Map<String, Object> map = userBasicMap(user);
-        int total = records.size();
-        if (total == 0) {
+        if (totalSundays == 0) {
             map.put("worshipRate", 0);
             map.put("famRate", 0);
         } else {
+            // 분모: 전체 일요일 수 / 분자: 출석한 일요일 수
             long worship = records.stream().filter(Attendance::isWorshipPresent).count();
             long fam = records.stream().filter(Attendance::isFamPresent).count();
-            map.put("worshipRate", (int) Math.round((double) worship / total * 100));
-            map.put("famRate", (int) Math.round((double) fam / total * 100));
+            map.put("worshipRate", (int) Math.round((double) worship / totalSundays * 100));
+            map.put("famRate", (int) Math.round((double) fam / totalSundays * 100));
         }
         return map;
     }
