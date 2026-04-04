@@ -26,15 +26,15 @@ public final class AuthDtos {
                                     String famName, String villageName) {}
     public record RoleUpdateRequest(Role role) {}
 
-    // ── Organization ──
+    // ── Organization (팸원 = users 기반) ──
     public record FamMemberCreateRequest(String name, String phone, LocalDate birth, Role role, String note) {}
     public record FamMemberUpdateRequest(String name, String phone, LocalDate birth, String note) {}
     public record FamVillageUpdateRequest(String toVillage) {}
     public record VillageCreateRequest(String name, String leaderName) {}
     public record FamCreateRequest(String name, String villageName, String leaderName) {}
 
-    // ── Attendance ──
-    public record AttendanceRecordRequest(Long famMemberId, boolean worshipPresent, boolean famPresent) {}
+    // ── Attendance (userId 기반으로 변경) ──
+    public record AttendanceRecordRequest(Long userId, boolean worshipPresent, boolean famPresent) {}
     public record AttendanceSaveRequest(String famName, LocalDate date, List<AttendanceRecordRequest> records) {}
 
     // ── Notice ──
@@ -58,6 +58,6 @@ public final class AuthDtos {
     public record TeamMemberAddRequest(Long userId, boolean leader) {}
     public record TeamIntroRequest(String intro) {}
 
-    // ── Schedule (홈 화면 일정) ──
+    // ── Schedule ──
     public record ScheduleRequest(LocalDate date, String content, boolean showDDay) {}
 }

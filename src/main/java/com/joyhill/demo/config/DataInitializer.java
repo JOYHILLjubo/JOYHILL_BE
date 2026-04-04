@@ -21,7 +21,6 @@ public class DataInitializer {
     CommandLineRunner initData(UserRepository userRepository,
                                VillageRepository villageRepository,
                                FamRepository famRepository,
-                               FamMemberRepository famMemberRepository,
                                TeamRoleRepository teamRoleRepository,
                                TeamRepository teamRepository) {
         return args -> {
@@ -40,7 +39,8 @@ public class DataInitializer {
             Fam leaderFam = famRepository.save(
                     new Fam(KoreanNameGenerator.famName("김민준"), village.getName(), "김민준"));
 
-            // password는 null로 세팅 — 최초 로그인은 birth(생년월일)로 인증
+            // 모든 팸원은 users 테이블에 직접 등록
+            // password = null, passwordChanged = false → 최초 로그인은 birth로 인증
             createUser(userRepository, "김민준", "010-1111-2222", "950315",
                     Role.leader, leaderFam.getName(), village.getName());
             createUser(userRepository, "박청년", "010-9999-0000", "001225",
@@ -51,20 +51,6 @@ public class DataInitializer {
                     Role.pastor, null, null);
             User admin = createUser(userRepository, "관리자", "010-7777-8888", "700101",
                     Role.admin, null, null);
-
-            FamMember leaderMember = new FamMember();
-            leaderMember.setName("김민준");
-            leaderMember.setFamName(leaderFam.getName());
-            leaderMember.setPhone(PhoneUtils.normalize("010-1111-2222"));
-            leaderMember.setRole(Role.leader);
-            famMemberRepository.save(leaderMember);
-
-            FamMember member = new FamMember();
-            member.setName("박청년");
-            member.setFamName(leaderFam.getName());
-            member.setPhone(PhoneUtils.normalize("010-9999-0000"));
-            member.setRole(Role.member);
-            famMemberRepository.save(member);
 
             teamRoleRepository.save(new TeamRole(admin.getId(), "새가족팀", true));
         };
@@ -77,11 +63,11 @@ public class DataInitializer {
         user.setName(name);
         user.setPhone(PhoneUtils.normalize(phone));
         user.setBirth(birth);
-        user.setPassword(null);         // 최초 로그인 전까지 password는 null
+        user.setPassword(null);
         user.setRole(role);
         user.setFamName(famName);
         user.setVillageName(villageName);
-        user.setPasswordChanged(false); // 비밀번호 미변경 상태
+        user.setPasswordChanged(false);
         return userRepository.save(user);
     }
 }

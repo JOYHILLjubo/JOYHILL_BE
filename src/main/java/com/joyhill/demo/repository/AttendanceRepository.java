@@ -9,10 +9,10 @@ import java.util.Optional;
 
 public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     List<Attendance> findByFamNameAndDate(String famName, LocalDate date);
-    Optional<Attendance> findByFamMemberIdAndDate(Long famMemberId, LocalDate date);
+    Optional<Attendance> findByUserIdAndDate(Long userId, LocalDate date);
     List<Attendance> findByFamNameAndDateBetween(String famName, LocalDate from, LocalDate to);
     List<Attendance> findByFamNameInAndDateBetween(List<String> famNames, LocalDate from, LocalDate to);
     List<Attendance> findByDateBetween(LocalDate from, LocalDate to);
-    List<Attendance> findByFamMemberIdAndDateBetween(Long famMemberId, LocalDate from, LocalDate to);
-    List<Attendance> findByFamMemberIdInAndDateBetween(List<Long> famMemberIds, LocalDate from, LocalDate to);
+    List<Attendance> findByUserIdAndDateBetween(Long userId, LocalDate from, LocalDate to);
+    List<Attendance> findByUserIdInAndDateBetween(List<Long> userIds, LocalDate from, LocalDate to);
 }

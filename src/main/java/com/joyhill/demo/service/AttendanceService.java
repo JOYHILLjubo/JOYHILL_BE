@@ -5,9 +5,10 @@ import com.joyhill.demo.common.exception.ApiException;
 import com.joyhill.demo.domain.Attendance;
 import com.joyhill.demo.domain.Fam;
 import com.joyhill.demo.domain.Role;
+import com.joyhill.demo.domain.User;
 import com.joyhill.demo.repository.AttendanceRepository;
-import com.joyhill.demo.repository.FamMemberRepository;
 import com.joyhill.demo.repository.FamRepository;
+import com.joyhill.demo.repository.UserRepository;
 import com.joyhill.demo.security.AuthUser;
 import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.stereotype.Service;
@@ -23,16 +24,16 @@ import java.util.Map;
 public class AttendanceService {
 
     private final AttendanceRepository attendanceRepository;
-    private final FamMemberRepository famMemberRepository;
+    private final UserRepository userRepository;
     private final FamRepository famRepository;
     private final AccessGuard accessGuard;
 
     public AttendanceService(AttendanceRepository attendanceRepository,
-                             FamMemberRepository famMemberRepository,
+                             UserRepository userRepository,
                              FamRepository famRepository,
                              AccessGuard accessGuard) {
         this.attendanceRepository = attendanceRepository;
-        this.famMemberRepository = famMemberRepository;
+        this.userRepository = userRepository;
         this.famRepository = famRepository;
         this.accessGuard = accessGuard;
     }
@@ -49,7 +50,7 @@ public class AttendanceService {
         accessGuard.requireLeader(authUser);
         accessGuard.requireFamScope(authUser, request.famName());
         for (var record : request.records()) {
-            attendanceRepository.findByFamMemberIdAndDate(record.famMemberId(), request.date())
+            attendanceRepository.findByUserIdAndDate(record.userId(), request.date())
                     .ifPresentOrElse(
                             attendance -> update(attendance, request.famName(), request.date(), record),
                             () -> {
@@ -125,9 +126,9 @@ public class AttendanceService {
 
     private void update(Attendance attendance, String famName, LocalDate date,
                         AuthDtos.AttendanceRecordRequest record) {
-        famMemberRepository.findById(record.famMemberId())
+        userRepository.findById(record.userId())
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸원을 찾을 수 없습니다."));
-        attendance.setFamMemberId(record.famMemberId());
+        attendance.setUserId(record.userId());
         attendance.setFamName(famName);
         attendance.setDate(date);
         attendance.setWorshipPresent(record.worshipPresent());
@@ -137,7 +138,9 @@ public class AttendanceService {
     private Map<String, Object> toMap(Attendance attendance) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", attendance.getId());
-        map.put("famMemberId", attendance.getFamMemberId());
+        map.put("userId", attendance.getUserId());
+        // 프론트 호환성 유지 (famMemberId → userId 매핑)
+        map.put("famMemberId", attendance.getUserId());
         map.put("famName", attendance.getFamName());
         map.put("date", attendance.getDate());
         map.put("worshipPresent", attendance.isWorshipPresent());

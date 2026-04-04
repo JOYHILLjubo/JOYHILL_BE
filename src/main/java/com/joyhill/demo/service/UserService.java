@@ -10,7 +10,6 @@ import com.joyhill.demo.repository.TeamRoleRepository;
 import com.joyhill.demo.repository.UserRepository;
 import com.joyhill.demo.security.AuthUser;
 import com.joyhill.demo.web.dto.AuthDtos;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,23 +23,20 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final TeamRoleRepository teamRoleRepository;
-    private final PasswordEncoder passwordEncoder;
     private final AccessGuard accessGuard;
     private final OrganizationService organizationService;
     private final AuthService authService;
 
     public UserService(UserRepository userRepository, TeamRoleRepository teamRoleRepository,
-                       PasswordEncoder passwordEncoder, AccessGuard accessGuard,
+                       AccessGuard accessGuard,
                        OrganizationService organizationService, AuthService authService) {
         this.userRepository = userRepository;
         this.teamRoleRepository = teamRoleRepository;
-        this.passwordEncoder = passwordEncoder;
         this.accessGuard = accessGuard;
         this.organizationService = organizationService;
         this.authService = authService;
     }
 
-    // 현재 로그인 유저 정보
     @Transactional(readOnly = true)
     public AuthDtos.UserSummary me(AuthUser authUser) {
         User user = getUser(authUser.userId());
@@ -70,7 +66,7 @@ public class UserService {
         user.setName(request.name());
         user.setPhone(normalizedPhone);
         user.setBirth(request.birth());
-        user.setPassword(passwordEncoder.encode(request.birth()));
+        user.setPassword(null);         // 최초 로그인은 birth로 인증
         user.setRole(request.role());
         user.setFamName(request.famName());
         user.setVillageName(request.villageName());
