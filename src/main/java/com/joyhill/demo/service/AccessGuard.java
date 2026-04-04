@@ -62,14 +62,22 @@ public class AccessGuard {
         throw new ApiException(ErrorCode.FORBIDDEN, "해당 팀을 관리할 권한이 없습니다.");
     }
 
+    /**
+     * 팸 접근 범위 체크
+     * - admin / pastor: 전체 허용
+     * - village_leader: 본인 마을 소속 팸만 허용
+     * - leader: 본인 팸만 허용
+     * - member: 본인 팸만 허용 (기도, 팸 조회 등)
+     */
     public void requireFamScope(AuthUser user, String famName) {
         if (user.role() == Role.admin || user.role() == Role.pastor) return;
-        if (user.role() == Role.leader && famName.equals(user.famName())) return;
         if (user.role() == Role.village_leader) {
             var fam = famRepository.findByName(famName)
                     .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸을 찾을 수 없습니다."));
             if (fam.getVillageName().equals(user.villageName())) return;
         }
+        // leader, member 모두 본인 팸만 접근 가능
+        if (famName.equals(user.famName())) return;
         throw new ApiException(ErrorCode.FORBIDDEN, "접근 범위를 벗어났습니다.");
     }
 
