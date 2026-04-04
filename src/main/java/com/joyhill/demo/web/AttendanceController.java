@@ -45,11 +45,12 @@ public class AttendanceController {
     }
 
     @GetMapping("/stats")
-    public BaseResponse<Map<String, Object>> stats(@AuthenticationPrincipal AuthUser authUser,
-                                                   @RequestParam String scope,
-                                                   @RequestParam(required = false) String famName,
-                                                   @RequestParam(required = false) String villageName,
-                                                   @RequestParam(defaultValue = "1month") String period) {
-        return BaseResponse.success(attendanceService.stats(authUser, scope, famName, villageName, period));
+    public BaseResponse<Map<String, Object>> stats(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam String scope,
+            @RequestParam(required = false) String famName,
+            @RequestParam(required = false) String villageName,
+            @RequestParam(required = false) Integer year) {
+        return BaseResponse.success(attendanceService.stats(authUser, scope, famName, villageName, year));
     }
 }

@@ -25,7 +25,6 @@ public class OrganizationController {
         return BaseResponse.success(organizationService.structure());
     }
 
-    // ── 마을 ──
     @GetMapping("/villages")
     public BaseResponse<List<Map<String, Object>>> villages() {
         return BaseResponse.success(organizationService.villages());
@@ -44,7 +43,6 @@ public class OrganizationController {
         return BaseResponse.success();
     }
 
-    // ── 팸 ──
     @GetMapping("/fams")
     public BaseResponse<List<Map<String, Object>>> fams() {
         return BaseResponse.success(organizationService.fams());
@@ -71,12 +69,12 @@ public class OrganizationController {
         return BaseResponse.success();
     }
 
-    // ── 팸원 ──
+    // year 파라미터 추가: 연도 기반 출석률 계산
     @GetMapping("/fams/{famName}/members")
     public BaseResponse<List<Map<String, Object>>> members(@AuthenticationPrincipal AuthUser authUser,
                                                            @PathVariable String famName,
-                                                           @RequestParam(defaultValue = "1month") String period) {
-        return BaseResponse.success(organizationService.famMembers(authUser, famName, period));
+                                                           @RequestParam(required = false) Integer year) {
+        return BaseResponse.success(organizationService.famMembers(authUser, famName, year));
     }
 
     @PostMapping("/fams/{famName}/members")

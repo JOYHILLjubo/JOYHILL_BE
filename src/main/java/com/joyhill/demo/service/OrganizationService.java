@@ -38,7 +38,6 @@ public class OrganizationService {
         this.accessGuard = accessGuard;
     }
 
-    // ── 전체 조직 구조 ──
     @Transactional(readOnly = true)
     public Map<String, Object> structure() {
         var villages = villageRepository.findAll().stream()
@@ -62,7 +61,6 @@ public class OrganizationService {
         return Map.of("villages", villages);
     }
 
-    // ── 마을 목록 ──
     @Transactional(readOnly = true)
     public List<Map<String, Object>> villages() {
         return villageRepository.findAll().stream().map(v -> {
@@ -73,7 +71,6 @@ public class OrganizationService {
         }).toList();
     }
 
-    // ── 마을 생성 ──
     public Map<String, Object> createVillage(AuthUser authUser, AuthDtos.VillageCreateRequest request) {
         accessGuard.requirePastorOrAdmin(authUser);
         if (villageRepository.findByName(request.name()).isPresent()) {
@@ -83,7 +80,6 @@ public class OrganizationService {
         return Map.of("name", village.getName(), "leaderName", village.getLeaderName() == null ? "" : village.getLeaderName());
     }
 
-    // ── 마을 삭제 ──
     public void deleteVillage(AuthUser authUser, String villageName) {
         accessGuard.requirePastorOrAdmin(authUser);
         if (famRepository.countByVillageName(villageName) > 0) {
@@ -92,7 +88,6 @@ public class OrganizationService {
         villageRepository.deleteByName(villageName);
     }
 
-    // ── 팸 목록 ──
     @Transactional(readOnly = true)
     public List<Map<String, Object>> fams() {
         return famRepository.findAll().stream().map(f -> {
@@ -104,7 +99,6 @@ public class OrganizationService {
         }).toList();
     }
 
-    // ── 팸 생성 ──
     public Map<String, Object> createFam(AuthUser authUser, AuthDtos.FamCreateRequest request) {
         accessGuard.requirePastorOrAdmin(authUser);
         if (famRepository.findByName(request.name()).isPresent()) {
@@ -117,7 +111,6 @@ public class OrganizationService {
                 "leaderName", fam.getLeaderName() == null ? "" : fam.getLeaderName());
     }
 
-    // ── 팸 마을 이동 ──
     public void moveFamVillage(AuthUser authUser, String famName, AuthDtos.FamVillageUpdateRequest request) {
         Fam fam = famRepository.findByName(famName)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸을 찾을 수 없습니다."));
@@ -130,12 +123,10 @@ public class OrganizationService {
         villageRepository.findByName(request.toVillage())
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "마을을 찾을 수 없습니다."));
         fam.setVillageName(request.toVillage());
-        // 해당 팸 소속 유저 village_name도 업데이트
         userRepository.findByFamName(famName)
                 .forEach(user -> user.setVillageName(request.toVillage()));
     }
 
-    // ── 팸 삭제 ──
     public void deleteFam(AuthUser authUser, String famName) {
         accessGuard.requirePastorOrAdmin(authUser);
         if (userRepository.countByFamName(famName) > 0) {
@@ -144,16 +135,28 @@ public class OrganizationService {
         famRepository.deleteByName(famName);
     }
 
-    // ── 팸원 목록 (출석률 포함, users 테이블 기반) ──
+    /**
+     * 팸원 목록 (출석률 포함)
+     * @param year 연도 지정 시 해당 연도 1/1 ~ 12/31 (현재 연도면 오늘까지), null이면 전체 기간
+     */
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> famMembers(AuthUser authUser, String famName, String period) {
+    public List<Map<String, Object>> famMembers(AuthUser authUser, String famName, Integer year) {
         accessGuard.requireLeader(authUser);
         accessGuard.requireFamScope(authUser, famName);
 
         List<User> members = userRepository.findByFamName(famName);
 
-        LocalDate to = LocalDate.now();
-        LocalDate from = parsePeriod(period, to);
+        LocalDate from;
+        LocalDate to;
+
+        if (year != null) {
+            int currentYear = LocalDate.now().getYear();
+            from = LocalDate.of(year, 1, 1);
+            to = (year == currentYear) ? LocalDate.now() : LocalDate.of(year, 12, 31);
+        } else {
+            from = LocalDate.of(2000, 1, 1);
+            to = LocalDate.now();
+        }
 
         List<Long> userIds = members.stream().map(User::getId).toList();
         List<Attendance> attendances = attendanceRepository.findByUserIdInAndDateBetween(userIds, from, to);
@@ -166,7 +169,6 @@ public class OrganizationService {
                 .toList();
     }
 
-    // ── 팸원 추가 (users 테이블에 직접 생성) ──
     public Map<String, Object> addFamMember(AuthUser authUser, String famName, AuthDtos.FamMemberCreateRequest request) {
         accessGuard.requireLeader(authUser);
         accessGuard.requireFamScope(authUser, famName);
@@ -174,7 +176,6 @@ public class OrganizationService {
         Fam fam = famRepository.findByName(famName)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸을 찾을 수 없습니다."));
 
-        // 전화번호 중복 체크
         if (request.phone() != null && !request.phone().isBlank()
                 && userRepository.existsByPhone(PhoneUtils.normalize(request.phone()))) {
             throw new ApiException(ErrorCode.DUPLICATE_PHONE, "이미 등록된 전화번호입니다.");
@@ -191,7 +192,6 @@ public class OrganizationService {
         user.setPasswordChanged(false);
         user.setPassword(null);
 
-        // birth 처리
         String birth = "000000";
         if (request.birth() != null) {
             birth = request.birth().format(DateTimeFormatter.ofPattern("yyMMdd"));
@@ -202,12 +202,10 @@ public class OrganizationService {
         return userBasicMap(user);
     }
 
-    // ── 팸원 수정 ──
     public Map<String, Object> updateFamMember(AuthUser authUser, Long id, AuthDtos.FamMemberUpdateRequest request) {
         User user = getUser(id);
         accessGuard.requireLeader(authUser);
         accessGuard.requireFamScope(authUser, user.getFamName());
-
         user.setName(request.name());
         if (request.phone() != null) user.setPhone(PhoneUtils.normalize(request.phone()));
         if (request.birth() != null) {
@@ -217,7 +215,6 @@ public class OrganizationService {
         return userBasicMap(user);
     }
 
-    // ── 팸원 역할 변경 ──
     public void updateFamMemberRole(AuthUser authUser, Long id, AuthDtos.RoleUpdateRequest request) {
         User user = getUser(id);
         accessGuard.requireRoleAtLeast(authUser, Role.village_leader);
@@ -225,7 +222,6 @@ public class OrganizationService {
         user.setRole(request.role());
     }
 
-    // ── 팸원 삭제 ──
     public void deleteFamMember(AuthUser authUser, Long id) {
         User user = getUser(id);
         accessGuard.requireLeader(authUser);
@@ -233,7 +229,6 @@ public class OrganizationService {
         userRepository.delete(user);
     }
 
-    // ── 유저 역할 변경 ──
     public void changeUserRole(AuthUser authUser, Long id, Role targetRole) {
         accessGuard.requireAdmin(authUser);
         User user = getUser(id);
@@ -265,21 +260,11 @@ public class OrganizationService {
         user.setRole(targetRole);
     }
 
-    // ── 내부 유틸 ──
-    private LocalDate parsePeriod(String period, LocalDate to) {
-        return switch (period == null ? "1month" : period) {
-            case "3month" -> to.minusMonths(3);
-            case "6month" -> to.minusMonths(6);
-            default -> to.minusMonths(1);
-        };
-    }
-
     private User getUser(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸원을 찾을 수 없습니다."));
     }
 
-    // 전화번호 없는 팸원을 위한 임시 번호 생성 (실제 로그인 불가)
     private String generateTempPhone() {
         return "000-" + System.currentTimeMillis() % 100000000;
     }

@@ -71,11 +71,27 @@ public class AttendanceService {
                 .map(this::toMap).toList();
     }
 
+    /**
+     * 출석 통계
+     * @param year 연도 지정 시 해당 연도 1/1 ~ 12/31 (현재 연도면 오늘까지)
+     *             null 이면 전체 데이터 기준
+     */
     @Transactional(readOnly = true)
     public Map<String, Object> stats(AuthUser authUser, String scope, String famName,
-                                     String villageName, String period) {
-        LocalDate to = LocalDate.now();
-        LocalDate from = parsePeriod(period, to);
+                                     String villageName, Integer year) {
+        LocalDate to;
+        LocalDate from;
+
+        if (year != null) {
+            int currentYear = LocalDate.now().getYear();
+            from = LocalDate.of(year, 1, 1);
+            // 현재 연도면 오늘까지, 과거 연도면 12/31까지
+            to = (year == currentYear) ? LocalDate.now() : LocalDate.of(year, 12, 31);
+        } else {
+            // year 미지정 시 전체 기간 (충분히 넓게)
+            from = LocalDate.of(2000, 1, 1);
+            to = LocalDate.now();
+        }
 
         List<Attendance> rows;
 
@@ -105,7 +121,7 @@ public class AttendanceService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("scope", scope);
-        result.put("period", period);
+        result.put("year", year);
         result.put("from", from);
         result.put("to", to);
         result.put("totalRecords", total);
@@ -114,14 +130,6 @@ public class AttendanceService {
         result.put("worshipRate", total == 0 ? 0.0 : Math.round((double) worship / total * 100.0));
         result.put("famRate", total == 0 ? 0.0 : Math.round((double) fam / total * 100.0));
         return result;
-    }
-
-    private LocalDate parsePeriod(String period, LocalDate to) {
-        return switch (period == null ? "1month" : period) {
-            case "3month" -> to.minusMonths(3);
-            case "6month" -> to.minusMonths(6);
-            default -> to.minusMonths(1);
-        };
     }
 
     private void update(Attendance attendance, String famName, LocalDate date,
@@ -139,8 +147,7 @@ public class AttendanceService {
         Map<String, Object> map = new HashMap<>();
         map.put("id", attendance.getId());
         map.put("userId", attendance.getUserId());
-        // 프론트 호환성 유지 (famMemberId → userId 매핑)
-        map.put("famMemberId", attendance.getUserId());
+        map.put("famMemberId", attendance.getUserId()); // 프론트 호환성
         map.put("famName", attendance.getFamName());
         map.put("date", attendance.getDate());
         map.put("worshipPresent", attendance.isWorshipPresent());
