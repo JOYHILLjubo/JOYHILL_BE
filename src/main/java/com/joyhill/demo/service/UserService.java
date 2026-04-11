@@ -10,6 +10,7 @@ import com.joyhill.demo.repository.TeamRoleRepository;
 import com.joyhill.demo.repository.UserRepository;
 import com.joyhill.demo.security.AuthUser;
 import com.joyhill.demo.web.dto.AuthDtos;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,15 +27,18 @@ public class UserService {
     private final AccessGuard accessGuard;
     private final OrganizationService organizationService;
     private final AuthService authService;
+    private final PasswordEncoder passwordEncoder;
 
     public UserService(UserRepository userRepository, TeamRoleRepository teamRoleRepository,
                        AccessGuard accessGuard,
-                       OrganizationService organizationService, AuthService authService) {
+                       OrganizationService organizationService, AuthService authService,
+                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.teamRoleRepository = teamRoleRepository;
         this.accessGuard = accessGuard;
         this.organizationService = organizationService;
         this.authService = authService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
