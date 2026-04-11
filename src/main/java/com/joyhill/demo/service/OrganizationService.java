@@ -203,7 +203,11 @@ public class OrganizationService {
     public Map<String, Object> updateFamMember(AuthUser authUser, Long id, AuthDtos.FamMemberUpdateRequest request) {
         User user = getUser(id);
         accessGuard.requireLeader(authUser);
-        accessGuard.requireFamScope(authUser, user.getFamName());
+        if (user.getFamName() != null) {
+            accessGuard.requireFamScope(authUser, user.getFamName());
+        } else {
+            accessGuard.requirePastorOrAdmin(authUser);
+        }
         user.setName(request.name());
         if (request.phone() != null) user.setPhone(PhoneUtils.normalize(request.phone()));
         if (request.birth() != null) {
@@ -216,14 +220,22 @@ public class OrganizationService {
     public void updateFamMemberRole(AuthUser authUser, Long id, AuthDtos.RoleUpdateRequest request) {
         User user = getUser(id);
         accessGuard.requireRoleAtLeast(authUser, Role.village_leader);
-        accessGuard.requireFamScope(authUser, user.getFamName());
+        if (user.getFamName() != null) {
+            accessGuard.requireFamScope(authUser, user.getFamName());
+        } else {
+            accessGuard.requirePastorOrAdmin(authUser);
+        }
         user.setRole(request.role());
     }
 
     public void deleteFamMember(AuthUser authUser, Long id) {
         User user = getUser(id);
         accessGuard.requireLeader(authUser);
-        accessGuard.requireFamScope(authUser, user.getFamName());
+        if (user.getFamName() != null) {
+            accessGuard.requireFamScope(authUser, user.getFamName());
+        } else {
+            accessGuard.requirePastorOrAdmin(authUser);
+        }
         userRepository.delete(user);
     }
 
