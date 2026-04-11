@@ -42,6 +42,7 @@ public class AuthService {
     public AuthDtos.LoginResponse login(AuthDtos.LoginRequest request) {
         String normalizedPhone = PhoneUtils.normalize(request.phone());
         User user = userRepository.findByPhoneNormalized(normalizedPhone)
+                .or(() -> userRepository.findByPhone(request.phone()))
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_CREDENTIALS, "전화번호 또는 비밀번호가 일치하지 않습니다."));
 
         if (!user.isPasswordChanged()) {
