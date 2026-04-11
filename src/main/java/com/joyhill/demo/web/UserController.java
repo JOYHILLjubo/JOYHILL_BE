@@ -63,4 +63,10 @@ public class UserController {
         userService.delete(authUser, id);
         return BaseResponse.success();
     }
+
+    @PatchMapping("/{id}/reset-password")
+    public BaseResponse<Void> resetPassword(@AuthenticationPrincipal AuthUser authUser, @PathVariable Long id) {
+        userService.resetPassword(authUser, id);
+        return BaseResponse.success();
+    }
 }

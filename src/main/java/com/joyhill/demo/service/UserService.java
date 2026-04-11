@@ -97,6 +97,13 @@ public class UserService {
         userRepository.delete(getUser(id));
     }
 
+    public void resetPassword(AuthUser authUser, Long id) {
+        accessGuard.requireAdmin(authUser);
+        User user = getUser(id);
+        user.setPassword(passwordEncoder.encode("123456789"));
+        user.setPasswordChanged(false);
+    }
+
     private void replaceTeams(Long userId, List<String> teams, List<String> teamLeaders) {
         teamRoleRepository.deleteByUserId(userId);
         if (teams == null) return;
