@@ -214,6 +214,16 @@ public class OrganizationService {
             user.setBirth(request.birth().format(DateTimeFormatter.ofPattern("yyMMdd")));
         }
         user.setNote(request.note());
+        // 팸 변경 처리 (pastor/admin만 가능)
+        if (request.famName() != null && (authUser.role() == Role.pastor || authUser.role() == Role.admin)) {
+            String newFamName = request.famName().isBlank() ? null : request.famName();
+            user.setFamName(newFamName);
+            if (newFamName != null) {
+                famRepository.findByName(newFamName).ifPresent(fam -> user.setVillageName(fam.getVillageName()));
+            } else {
+                user.setVillageName(null);
+            }
+        }
         return userBasicMap(user);
     }
 
