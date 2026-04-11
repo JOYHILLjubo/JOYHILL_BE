@@ -77,6 +77,11 @@ public class OrganizationController {
         return BaseResponse.success(organizationService.famMembers(authUser, famName, year));
     }
 
+    @GetMapping("/users/unassigned")
+    public BaseResponse<List<Map<String, Object>>> unassignedMembers(@AuthenticationPrincipal AuthUser authUser) {
+        return BaseResponse.success(organizationService.unassignedMembers(authUser));
+    }
+
     @PostMapping("/fams/{famName}/members")
     public BaseResponse<Map<String, Object>> addMember(@AuthenticationPrincipal AuthUser authUser,
                                                        @PathVariable String famName,

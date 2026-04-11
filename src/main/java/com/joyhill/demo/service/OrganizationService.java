@@ -326,6 +326,16 @@ public class OrganizationService {
         return map;
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> unassignedMembers(AuthUser authUser) {
+        accessGuard.requirePastorOrAdmin(authUser);
+        return userRepository.findByFamNameIsNull().stream()
+                .filter(u -> u.getRole() == Role.member || u.getRole() == Role.leader)
+                .sorted(Comparator.comparing(User::getName))
+                .map(this::userBasicMap)
+                .toList();
+    }
+
     private Map<String, Object> userMapWithRate(User user, List<Attendance> records, int totalSundays) {
         Map<String, Object> map = userBasicMap(user);
         if (totalSundays == 0) {
