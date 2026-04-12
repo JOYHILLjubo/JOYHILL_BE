@@ -28,7 +28,7 @@ public final class AuthDtos {
 
     // ── Organization (팸원 = users 기반) ──
     public record FamMemberCreateRequest(String name, String phone, LocalDate birth, Role role, String note) {}
-    public record FamMemberUpdateRequest(String name, String phone, LocalDate birth, String note, String famName) {}
+    public record FamMemberUpdateRequest(String name, String phone, String birth, String note, String famName) {}
     public record FamVillageUpdateRequest(String toVillage) {}
     public record VillageCreateRequest(String name, String leaderName) {}
     public record FamCreateRequest(String name, String villageName, String leaderName) {}

@@ -210,8 +210,8 @@ public class OrganizationService {
         }
         user.setName(request.name());
         if (request.phone() != null) user.setPhone(PhoneUtils.normalize(request.phone()));
-        if (request.birth() != null) {
-            user.setBirth(request.birth().format(DateTimeFormatter.ofPattern("yyMMdd")));
+        if (request.birth() != null && !request.birth().isBlank()) {
+            user.setBirth(request.birth().replaceAll("\\D", "").substring(0, Math.min(6, request.birth().replaceAll("\\D", "").length())));
         }
         user.setNote(request.note());
         // 팸 변경 처리 (pastor/admin만 가능)
