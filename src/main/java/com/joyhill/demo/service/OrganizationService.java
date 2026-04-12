@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -192,8 +191,10 @@ public class OrganizationService {
         user.setPassword(null);
 
         String birth = "000000";
-        if (request.birth() != null) {
-            birth = request.birth().format(DateTimeFormatter.ofPattern("yyMMdd"));
+        if (request.birth() != null && !request.birth().isBlank()) {
+            birth = request.birth().replaceAll("\\D", "");
+            if (birth.length() > 6) birth = birth.substring(birth.length() - 6); // YYYYMMDD → YYMMDD
+            birth = birth.substring(0, Math.min(6, birth.length()));
         }
         user.setBirth(birth);
         userRepository.save(user);
