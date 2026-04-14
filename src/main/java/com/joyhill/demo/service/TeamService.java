@@ -58,6 +58,7 @@ public class TeamService {
             userRepository.findById(tr.getUserId()).ifPresent(user -> {
                 map.put("name", user.getName());
                 map.put("phone", user.getPhone());
+                map.put("birth", user.getBirth());
                 map.put("famName", user.getFamName());
                 map.put("role", user.getRole());
             });
