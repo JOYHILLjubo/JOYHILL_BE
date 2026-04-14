@@ -40,6 +40,15 @@ public class TeamController {
         return BaseResponse.success(teamService.addMember(authUser, teamName, request));
     }
 
+    // 팀장 위임
+    @PutMapping("/{teamName}/delegate/{userId}")
+    public BaseResponse<Void> delegateLeader(@AuthenticationPrincipal AuthUser authUser,
+                                             @PathVariable String teamName,
+                                             @PathVariable Long userId) {
+        teamService.delegateLeader(authUser, teamName, userId);
+        return BaseResponse.success();
+    }
+
     // 팀원 제거
     @DeleteMapping("/{teamName}/members/{userId}")
     public BaseResponse<Void> removeMember(@AuthenticationPrincipal AuthUser authUser,

@@ -89,6 +89,28 @@ public class TeamService {
         return map;
     }
 
+    // ── 팀장 위임 ──
+    public void delegateLeader(AuthUser authUser, String teamName, Long targetUserId) {
+        accessGuard.requireTeamLeaderOrAbove(authUser, teamName);
+        getTeam(teamName);
+
+        // 대상이 팀원인지 확인
+        teamRoleRepository.findByUserIdAndTeamName(targetUserId, teamName)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "해당 팀원을 찾을 수 없습니다."));
+
+        // 기존 팀장 전원 팀원으로 강등
+        List<TeamRole> currentLeaders = teamRoleRepository.findByTeamName(teamName)
+                .stream().filter(TeamRole::isLeader).toList();
+        for (TeamRole leader : currentLeaders) {
+            teamRoleRepository.deleteByUserIdAndTeamName(leader.getUserId(), teamName);
+            teamRoleRepository.save(new TeamRole(leader.getUserId(), teamName, false));
+        }
+
+        // 대상을 팀장으로 승격
+        teamRoleRepository.deleteByUserIdAndTeamName(targetUserId, teamName);
+        teamRoleRepository.save(new TeamRole(targetUserId, teamName, true));
+    }
+
     // ── 팀원 제거 ──
     public void removeMember(AuthUser authUser, String teamName, Long userId) {
         accessGuard.requireTeamLeaderOrAbove(authUser, teamName);
