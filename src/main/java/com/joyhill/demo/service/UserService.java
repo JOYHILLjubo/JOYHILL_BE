@@ -13,8 +13,11 @@ import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Collator;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -54,7 +57,7 @@ public class UserService {
             users = userRepository.findByNameContainingIgnoreCase(keyword);
         }
         return users.stream()
-                .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(java.text.Collator.getInstance(java.util.Locale.KOREAN)::compare)))
+                .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(Collator.getInstance(Locale.KOREAN)::compare)))
                 .map(this::toMap).toList();
     }
 
