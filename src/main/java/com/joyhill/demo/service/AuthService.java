@@ -135,7 +135,7 @@ public class AuthService {
         return new AuthDtos.UserSummary(
                 user.getId(), user.getName(), user.getRole(),
                 user.getFamName(), user.getVillageName(),
-                teams, teamRoles, user.getPhone(),
+                teams, teamRoles, PhoneUtils.format(user.getPhone()),
                 user.isPasswordChanged()
         );
     }

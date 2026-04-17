@@ -117,6 +117,7 @@ public class AttendanceService {
 
         long total = rows.size();
         long worship = rows.stream().filter(Attendance::isWorshipPresent).count();
+        long online = rows.stream().filter(Attendance::isOnlinePresent).count();
         long fam = rows.stream().filter(Attendance::isFamPresent).count();
 
         Map<String, Object> result = new HashMap<>();
@@ -126,8 +127,10 @@ public class AttendanceService {
         result.put("to", to);
         result.put("totalRecords", total);
         result.put("worshipPresent", worship);
+        result.put("onlinePresent", online);
         result.put("famPresent", fam);
         result.put("worshipRate", total == 0 ? 0.0 : Math.round((double) worship / total * 100.0));
+        result.put("onlineRate", total == 0 ? 0.0 : Math.round((double) online / total * 100.0));
         result.put("famRate", total == 0 ? 0.0 : Math.round((double) fam / total * 100.0));
         return result;
     }
@@ -140,6 +143,7 @@ public class AttendanceService {
         attendance.setFamName(famName);
         attendance.setDate(date);
         attendance.setWorshipPresent(record.worshipPresent());
+        attendance.setOnlinePresent(record.onlinePresent());
         attendance.setFamPresent(record.famPresent());
     }
 
@@ -151,6 +155,7 @@ public class AttendanceService {
         map.put("famName", attendance.getFamName());
         map.put("date", attendance.getDate());
         map.put("worshipPresent", attendance.isWorshipPresent());
+        map.put("onlinePresent", attendance.isOnlinePresent());
         map.put("famPresent", attendance.isFamPresent());
         return map;
     }

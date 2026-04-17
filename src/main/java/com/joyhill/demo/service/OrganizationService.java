@@ -11,10 +11,12 @@ import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Collator;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -54,6 +56,7 @@ public class OrganizationService {
                                 famMap.put("name", fam.getName());
                                 famMap.put("leaderName", fam.getLeaderName());
                                 famMap.put("members", userRepository.findByFamName(fam.getName()).stream()
+                                        .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(Collator.getInstance(Locale.KOREAN)::compare)))
                                         .map(this::userBasicMap).toList());
                                 return famMap;
                             }).toList());
@@ -163,6 +166,7 @@ public class OrganizationService {
                 .collect(Collectors.groupingBy(Attendance::getUserId));
 
         return members.stream()
+                .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(Collator.getInstance(Locale.KOREAN)::compare)))
                 .map(m -> userMapWithRate(m, byUser.getOrDefault(m.getId(), List.of()), totalSundays))
                 .toList();
     }
@@ -342,7 +346,7 @@ public class OrganizationService {
         map.put("id", user.getId());
         map.put("name", user.getName());
         map.put("famName", user.getFamName());
-        map.put("phone", user.getPhone());
+        map.put("phone", PhoneUtils.format(user.getPhone()));
         map.put("birth", user.getBirth());
         map.put("role", user.getRole());
         map.put("note", user.getNote());
@@ -363,12 +367,14 @@ public class OrganizationService {
         Map<String, Object> map = userBasicMap(user);
         if (totalSundays == 0) {
             map.put("worshipRate", 0);
+            map.put("onlineRate", 0);
             map.put("famRate", 0);
         } else {
-            // 분모: 전체 일요일 수 / 분자: 출석한 일요일 수
             long worship = records.stream().filter(Attendance::isWorshipPresent).count();
+            long online = records.stream().filter(Attendance::isOnlinePresent).count();
             long fam = records.stream().filter(Attendance::isFamPresent).count();
             map.put("worshipRate", (int) Math.round((double) worship / totalSundays * 100));
+            map.put("onlineRate", (int) Math.round((double) online / totalSundays * 100));
             map.put("famRate", (int) Math.round((double) fam / totalSundays * 100));
         }
         return map;

@@ -25,6 +25,9 @@ public class Attendance {
     @Column(name = "worship_present", nullable = false)
     private boolean worshipPresent;
 
+    @Column(name = "online_present", nullable = false)
+    private boolean onlinePresent;
+
     @Column(name = "fam_present", nullable = false)
     private boolean famPresent;
 
@@ -41,6 +44,9 @@ public class Attendance {
 
     public boolean isWorshipPresent() { return worshipPresent; }
     public void setWorshipPresent(boolean worshipPresent) { this.worshipPresent = worshipPresent; }
+
+    public boolean isOnlinePresent() { return onlinePresent; }
+    public void setOnlinePresent(boolean onlinePresent) { this.onlinePresent = onlinePresent; }
 
     public boolean isFamPresent() { return famPresent; }
     public void setFamPresent(boolean famPresent) { this.famPresent = famPresent; }

@@ -53,7 +53,9 @@ public class UserService {
         } else {
             users = userRepository.findByNameContainingIgnoreCase(keyword);
         }
-        return users.stream().map(this::toMap).toList();
+        return users.stream()
+                .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(java.text.Collator.getInstance(java.util.Locale.KOREAN)::compare)))
+                .map(this::toMap).toList();
     }
 
     public Map<String, Object> create(AuthUser authUser, AuthDtos.UserCreateRequest request) {
@@ -122,7 +124,7 @@ public class UserService {
         Map<String, Object> map = new HashMap<>();
         map.put("id", user.getId());
         map.put("name", user.getName());
-        map.put("phone", user.getPhone());
+        map.put("phone", PhoneUtils.format(user.getPhone()));
         map.put("birth", user.getBirth());
         map.put("role", user.getRole());
         map.put("famName", user.getFamName());

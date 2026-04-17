@@ -34,7 +34,7 @@ public final class AuthDtos {
     public record FamCreateRequest(String name, String villageName, String leaderName) {}
 
     // ── Attendance (userId 기반으로 변경) ──
-    public record AttendanceRecordRequest(Long userId, boolean worshipPresent, boolean famPresent) {}
+    public record AttendanceRecordRequest(Long userId, boolean worshipPresent, boolean onlinePresent, boolean famPresent) {}
     public record AttendanceSaveRequest(String famName, LocalDate date, List<AttendanceRecordRequest> records) {}
 
     // ── Notice ──
