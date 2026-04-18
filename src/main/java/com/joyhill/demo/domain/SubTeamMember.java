@@ -1,4 +1,4 @@
-﻿package com.joyhill.demo.domain;
+package com.joyhill.demo.domain;
 import jakarta.persistence.*;
 @Entity
 @Table(name = "sub_team_members",

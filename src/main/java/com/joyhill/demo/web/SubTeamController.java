@@ -1,4 +1,4 @@
-﻿package com.joyhill.demo.web;
+package com.joyhill.demo.web;
 import com.joyhill.demo.common.api.BaseResponse;
 import com.joyhill.demo.security.AuthUser;
 import com.joyhill.demo.service.SubTeamService;

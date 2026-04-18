@@ -1,4 +1,4 @@
-﻿package com.joyhill.demo.service;
+package com.joyhill.demo.service;
 import com.joyhill.demo.common.api.ErrorCode;
 import com.joyhill.demo.common.exception.ApiException;
 import com.joyhill.demo.domain.SubTeam;

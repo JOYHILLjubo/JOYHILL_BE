@@ -1,4 +1,4 @@
-﻿package com.joyhill.demo.repository;
+package com.joyhill.demo.repository;
 import com.joyhill.demo.domain.SubTeamMember;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
