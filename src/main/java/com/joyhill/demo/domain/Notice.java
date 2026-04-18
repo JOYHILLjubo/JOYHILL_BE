@@ -38,6 +38,9 @@ public class Notice extends BaseTimeEntity {
     @Column(name = "file_url", length = 500)
     private String fileUrl;
 
+    @Column(name = "link_url", length = 500)
+    private String linkUrl;
+
     public Long getId() {
         return id;
     }
@@ -112,5 +115,13 @@ public class Notice extends BaseTimeEntity {
 
     public void setFileUrl(String fileUrl) {
         this.fileUrl = fileUrl;
+    }
+
+    public String getLinkUrl() {
+        return linkUrl;
+    }
+
+    public void setLinkUrl(String linkUrl) {
+        this.linkUrl = linkUrl;
     }
 }

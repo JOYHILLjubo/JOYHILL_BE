@@ -39,7 +39,7 @@ public final class AuthDtos {
 
     // ── Notice ──
     public record NoticeRequest(String title, String content, String tag, String teamTag,
-                                boolean pinned, LocalDate deadline, String fileUrl) {}
+                                boolean pinned, LocalDate deadline, String fileUrl, String linkUrl) {}
 
     // ── Prayer ──
     public record PrayerRequest(String famName, String content, int year, int month, Integer week) {}

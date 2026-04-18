@@ -104,6 +104,7 @@ public class NoticeService {
         notice.setPinned(request.pinned());
         notice.setDeadline(request.deadline());
         notice.setFileUrl(request.fileUrl());
+        notice.setLinkUrl(request.linkUrl());
         notice.setAuthor(authUser.name());
         notice.setUserId(authUser.userId());
     }
@@ -120,6 +121,7 @@ public class NoticeService {
         map.put("pinned", notice.isPinned());
         map.put("deadline", notice.getDeadline());
         map.put("fileUrl", notice.getFileUrl());
+        map.put("linkUrl", notice.getLinkUrl());
         map.put("createdAt", notice.getCreatedAt());
         return map;
     }
