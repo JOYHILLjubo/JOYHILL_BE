@@ -58,6 +58,11 @@ public final class AuthDtos {
     public record TeamMemberAddRequest(Long userId, boolean leader) {}
     public record TeamIntroRequest(String intro) {}
 
+    // ── SubTeam ──
+    public record SubTeamCreateRequest(String subTeamName) {}
+    public record SubTeamMemberAddRequest(Long userId) {}
+    public record SubTeamLeaderRequest(Long userId) {}
+
     // ── Schedule ──
     public record ScheduleRequest(LocalDate date, String content, boolean showDDay) {}
 }

@@ -12,7 +12,8 @@ public enum ErrorCode {
     DEMOTION_BLOCKED(HttpStatus.CONFLICT),
     DELETION_BLOCKED(HttpStatus.CONFLICT),
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST),
-    INVALID_TAG(HttpStatus.BAD_REQUEST);
+    INVALID_TAG(HttpStatus.BAD_REQUEST),
+    BAD_REQUEST(HttpStatus.BAD_REQUEST);
 
     private final HttpStatus status;
 
