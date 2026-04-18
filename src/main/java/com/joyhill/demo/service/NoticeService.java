@@ -23,10 +23,12 @@ public class NoticeService {
 
     private final NoticeRepository noticeRepository;
     private final AccessGuard accessGuard;
+    private final S3Service s3Service;
 
-    public NoticeService(NoticeRepository noticeRepository, AccessGuard accessGuard) {
+    public NoticeService(NoticeRepository noticeRepository, AccessGuard accessGuard, S3Service s3Service) {
         this.noticeRepository = noticeRepository;
         this.accessGuard = accessGuard;
+        this.s3Service = s3Service;
     }
 
     // 공지 목록 — pinned 먼저, 최신 순 정렬
@@ -79,6 +81,7 @@ public class NoticeService {
         if (!notice.getUserId().equals(authUser.userId()) && authUser.role() != com.joyhill.demo.domain.Role.admin) {
             throw new ApiException(ErrorCode.FORBIDDEN, "작성자 또는 관리자만 삭제할 수 있습니다.");
         }
+        s3Service.delete(notice.getFileUrl()); // S3 이미지도 같이 삭제
         noticeRepository.delete(notice);
     }
 

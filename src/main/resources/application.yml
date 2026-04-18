@@ -1,6 +1,10 @@
 spring:
   application:
     name: joy-church-backend
+  servlet:
+    multipart:
+      max-file-size: 30MB
+      max-request-size: 32MB
   datasource:
     url: jdbc:postgresql://localhost:5432/joy
     username: ${DB_USERNAME:joy_user}
@@ -23,5 +27,5 @@ jwt:
 
 aws:
   s3:
-    bucket: joy-church-files
+    bucket: joy-hill
     region: ap-northeast-2

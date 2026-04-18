@@ -41,5 +41,15 @@ out/
 .env.*
 src/main/resources/application-local.yml
 src/main/resources/application-local.yaml
+src/main/resources/application-secret.yml
 src/test/resources/application-test.yml
 *.log
+
+### AWS 자격증명 (절대 커밋 금지) ###
+# Access Key / Secret Key를 파일로 관리하는 경우 대비
+*.pem
+*.p12
+*.jks
+aws-credentials*
+credentials
+~/.aws/
