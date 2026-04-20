@@ -3,9 +3,11 @@ import com.joyhill.demo.common.api.ErrorCode;
 import com.joyhill.demo.common.exception.ApiException;
 import com.joyhill.demo.domain.SubTeam;
 import com.joyhill.demo.domain.SubTeamMember;
+import com.joyhill.demo.domain.TeamRole;
 import com.joyhill.demo.repository.SubTeamMemberRepository;
 import com.joyhill.demo.repository.SubTeamRepository;
 import com.joyhill.demo.repository.TeamRepository;
+import com.joyhill.demo.repository.TeamRoleRepository;
 import com.joyhill.demo.repository.UserRepository;
 import com.joyhill.demo.security.AuthUser;
 import com.joyhill.demo.web.dto.AuthDtos;
@@ -20,16 +22,19 @@ public class SubTeamService {
     private final SubTeamRepository subTeamRepository;
     private final SubTeamMemberRepository subTeamMemberRepository;
     private final TeamRepository teamRepository;
+    private final TeamRoleRepository teamRoleRepository;
     private final UserRepository userRepository;
     private final AccessGuard accessGuard;
     public SubTeamService(SubTeamRepository subTeamRepository,
                           SubTeamMemberRepository subTeamMemberRepository,
                           TeamRepository teamRepository,
+                          TeamRoleRepository teamRoleRepository,
                           UserRepository userRepository,
                           AccessGuard accessGuard) {
         this.subTeamRepository = subTeamRepository;
         this.subTeamMemberRepository = subTeamMemberRepository;
         this.teamRepository = teamRepository;
+        this.teamRoleRepository = teamRoleRepository;
         this.userRepository = userRepository;
         this.accessGuard = accessGuard;
     }
@@ -111,6 +116,12 @@ public class SubTeamService {
         if (subTeam.getLeaderUserId() != null) {
             userRepository.findById(subTeam.getLeaderUserId()).ifPresent(u -> map.put("leaderName", u.getName()));
         }
+        // 팀 전체 팀장 이름 포함 (서브팀에서도 팀장으로 표시하기 위해)
+        teamRoleRepository.findByTeamName(subTeam.getTeamName()).stream()
+                .filter(TeamRole::isLeader)
+                .findFirst()
+                .flatMap(tr -> userRepository.findById(tr.getUserId()))
+                .ifPresent(u -> map.put("teamLeaderName", u.getName()));
         if (includeMembers) {
             map.put("members", buildMemberList(subTeam));
         }
