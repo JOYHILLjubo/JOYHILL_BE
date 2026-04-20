@@ -24,7 +24,7 @@ public class Notice extends BaseTimeEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 100)
     private String tag;
 
     @Column(name = "team_tag", length = 50)

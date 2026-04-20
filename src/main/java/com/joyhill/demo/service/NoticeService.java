@@ -19,7 +19,7 @@ import java.util.Set;
 @Transactional
 public class NoticeService {
 
-    private static final Set<String> ALLOWED_TAGS = Set.of("행사", "안내", "소식", "요청");
+    private static final Set<String> ALLOWED_TAGS = Set.of("행사", "안내", "소식", "모집");
 
     private final NoticeRepository noticeRepository;
     private final AccessGuard accessGuard;
@@ -86,8 +86,13 @@ public class NoticeService {
     }
 
     private void validateTag(String tag) {
-        if (tag == null || !ALLOWED_TAGS.contains(tag)) {
-            throw new ApiException(ErrorCode.INVALID_TAG, "태그는 행사, 안내, 소식, 요청 중 하나여야 합니다.");
+        if (tag == null || tag.isBlank()) {
+            throw new ApiException(ErrorCode.INVALID_TAG, "태그는 하나 이상 선택해야 합니다.");
+        }
+        for (String t : tag.split(",")) {
+            if (!ALLOWED_TAGS.contains(t.trim())) {
+                throw new ApiException(ErrorCode.INVALID_TAG, "유효하지 않은 태그입니다: " + t.trim());
+            }
         }
     }
 
