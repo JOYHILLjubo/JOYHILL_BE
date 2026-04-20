@@ -13,8 +13,11 @@ import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Collator;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -63,7 +66,12 @@ public class TeamService {
                 map.put("role", user.getRole());
             });
             return map;
-        }).toList();
+        }).sorted(Comparator.comparing(
+                (Map<String, Object> m) -> m.get("isLeader") == Boolean.TRUE ? 0 : 1
+        ).thenComparing(
+                m -> String.valueOf(m.getOrDefault("name", "")),
+                Collator.getInstance(Locale.KOREAN)
+        )).toList();
     }
 
     // ── 팀원 추가 ──

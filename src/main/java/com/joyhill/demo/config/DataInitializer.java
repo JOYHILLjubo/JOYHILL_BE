@@ -14,7 +14,7 @@ import java.util.List;
 public class DataInitializer {
 
     private static final List<String> DEFAULT_TEAMS = List.of(
-            "찬양팀", "예배팀", "함기팀", "함성팀", "새가족팀", "미디어사역팀", "LAB팀", "큐티팀"
+            "예배팀", "함기팀", "함성팀", "새가족팀", "미디어사역팀", "LAB팀", "큐티팀"
     );
 
     @Bean
