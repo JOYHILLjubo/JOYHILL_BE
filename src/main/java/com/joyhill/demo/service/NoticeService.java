@@ -34,7 +34,7 @@ public class NoticeService {
     // 공지 목록 — pinned 먼저, 최신 순 정렬
     @Transactional(readOnly = true)
     public Map<String, Object> list(String tag, String search, int page, int size) {
-        String keyword = search == null ? "" : search;
+        String keyword = search == null ? "" : search.replaceAll("\\s", "");
         Page<Notice> result;
         if (tag != null && !tag.isBlank()) {
             result = noticeRepository.findByTagAndTitleContainingIgnoreCaseOrderByPinnedDescCreatedAtDesc(
