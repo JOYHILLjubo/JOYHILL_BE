@@ -31,6 +31,12 @@ public class NewcomerController {
         return BaseResponse.success(newcomerService.create(authUser, request));
     }
 
+    @PatchMapping("/{id}")
+    public BaseResponse<Map<String, Object>> update(@AuthenticationPrincipal AuthUser authUser, @PathVariable Long id,
+                                                    @RequestBody AuthDtos.NewcomerUpdateRequest request) {
+        return BaseResponse.success(newcomerService.update(authUser, id, request));
+    }
+
     @PatchMapping("/{id}/fam")
     public BaseResponse<Map<String, Object>> assignFam(@AuthenticationPrincipal AuthUser authUser, @PathVariable Long id,
                                                        @RequestBody AuthDtos.NewcomerFamAssignRequest request) {

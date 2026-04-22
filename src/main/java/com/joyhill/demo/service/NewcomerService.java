@@ -112,6 +112,22 @@ public class NewcomerService {
         newcomerRepository.delete(getNewcomer(id));
     }
 
+    public Map<String, Object> update(AuthUser authUser, Long id, AuthDtos.NewcomerUpdateRequest request) {
+        accessGuard.requireNewcomerManager(authUser);
+        Newcomer newcomer = getNewcomer(id);
+        if (request.name() != null && !request.name().isBlank()) {
+            newcomer.setName(request.name().trim());
+        }
+        newcomer.setPhone(PhoneUtils.normalize(request.phone()));
+        newcomer.setBirth(request.birth());
+        if (request.registeredAt() != null) {
+            newcomer.setRegisteredAt(request.registeredAt());
+        }
+        newcomer.setNote(request.note());
+        newcomerRepository.save(newcomer);
+        return toMap(newcomer);
+    }
+
     private Newcomer getNewcomer(Long id) {
         return newcomerRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "새가족을 찾을 수 없습니다."));

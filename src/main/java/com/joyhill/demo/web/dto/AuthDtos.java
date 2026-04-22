@@ -52,6 +52,8 @@ public final class AuthDtos {
     // ── Newcomer ──
     public record NewcomerRequest(String name, String phone, LocalDate birth,
                                   LocalDate registeredAt, String note) {}
+    public record NewcomerUpdateRequest(String name, String phone, LocalDate birth,
+                                        LocalDate registeredAt, String note) {}
     public record NewcomerFamAssignRequest(String famName) {}
 
     // ── Team ──
