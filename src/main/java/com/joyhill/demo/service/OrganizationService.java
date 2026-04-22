@@ -216,7 +216,12 @@ public class OrganizationService {
         user.setName(request.name());
         if (request.phone() != null) user.setPhone(PhoneUtils.normalize(request.phone()));
         if (request.birth() != null && !request.birth().isBlank()) {
-            user.setBirth(request.birth().replaceAll("\\D", "").substring(0, Math.min(6, request.birth().replaceAll("\\D", "").length())));
+            String birthDigits = request.birth().replaceAll("\\D", "");
+            // YYYYMMDD(8자리) 형태면 앞 2자리(세기) 제거 → YYMMDD(6자리)
+            String birth6 = birthDigits.length() == 8
+                    ? birthDigits.substring(2)
+                    : birthDigits.substring(0, Math.min(6, birthDigits.length()));
+            user.setBirth(birth6);
         }
         user.setNote(request.note());
         // 팸 변경 처리 (pastor/admin만 가능)
