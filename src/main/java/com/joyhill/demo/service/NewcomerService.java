@@ -108,7 +108,7 @@ public class NewcomerService {
     }
 
     public void delete(AuthUser authUser, Long id) {
-        accessGuard.requireRoleAtLeast(authUser, Role.leader);
+        accessGuard.requireNewcomerManager(authUser);
         newcomerRepository.delete(getNewcomer(id));
     }
 
