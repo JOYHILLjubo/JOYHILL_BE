@@ -116,48 +116,57 @@ public class AttendanceService {
             rows = attendanceRepository.findByFamNameAndDateBetween(targetFam, from, to);
         }
 
-        long newTotal = rows.size();
         long newWorship = rows.stream().filter(Attendance::isWorshipPresent).count();
-        long newOnline = rows.stream().filter(Attendance::isOnlinePresent).count();
-        long newFam = rows.stream().filter(Attendance::isFamPresent).count();
+        long newOnline  = rows.stream().filter(Attendance::isOnlinePresent).count();
+        long newFam     = rows.stream().filter(Attendance::isFamPresent).count();
 
-        // 현재 연도 + fam scope → legacy 합산
-        long worshipAtt = newWorship;
-        long worshipTot = newTotal;
-        long famAtt = newFam;
-        long famTot = newTotal;
-        long onlineTot = newTotal;
+        // 분모 = 올해 총 일요일 수 × 범위 내 팸원 수
+        // (attendance row 수를 분모로 쓰면 팸원 수만큼 곱해져서 % 이상해짐)
+        LocalDate sundayBase = isCurrentYear ? LocalDate.of(LocalDate.now().getYear(), 1, 1) : from;
+        int sundaysInPeriod = countSundaysInRange(sundayBase, to);
 
-        if (isCurrentYear && "fam".equals(scope)) {
+        List<User> scopeUsers;
+        if ("all".equals(scope)) {
+            scopeUsers = userRepository.findAll().stream()
+                    .filter(u -> u.getFamName() != null && !u.getFamName().isBlank())
+                    .toList();
+        } else if ("village".equals(scope)) {
+            String targetVillage = villageName == null ? authUser.villageName() : villageName;
+            scopeUsers = userRepository.findAll().stream()
+                    .filter(u -> targetVillage.equals(u.getVillageName())
+                            && u.getFamName() != null && !u.getFamName().isBlank())
+                    .toList();
+        } else {
             String targetFam = famName == null ? authUser.famName() : famName;
-            List<User> famUsers = userRepository.findByFamName(targetFam);
-            long legacyWorshipAtt = famUsers.stream().mapToLong(User::getLegacyWorshipAttended).sum();
-            long legacyFamAtt    = famUsers.stream().mapToLong(User::getLegacyFamAttended).sum();
-            // 분모 = 올해 이미 지난 주차(rows.size 기준) + 미입력 제외된 주차 수
-            // 하지만 stats API의 분모는 attendance row 수로 하는 게 아니라
-            // 올해 전체 주차 수(famMembers와 동일한 countSundaysInPeriod 값)으로 통일해야 함
-            // 여기서는 rows.size()을 분모로 쓰지 않고 패스를 가지고 올해 주차 수 계산
-            LocalDate thisYearFrom = LocalDate.of(LocalDate.now().getYear(), 1, 1);
-            int thisYearSundays = countSundaysInRange(thisYearFrom, to);
-            worshipAtt = newWorship + legacyWorshipAtt;
-            famAtt     = newFam     + legacyFamAtt;
-            worshipTot = thisYearSundays;
-            famTot     = thisYearSundays;
-            onlineTot  = thisYearSundays;
+            scopeUsers = userRepository.findByFamName(targetFam);
         }
+
+        long memberCount = scopeUsers.size();
+        long denominator = (long) sundaysInPeriod * memberCount;
+
+        // legacy 합산 (현재 연도에만)
+        long legacyWorshipAtt = 0;
+        long legacyFamAtt = 0;
+        if (isCurrentYear) {
+            legacyWorshipAtt = scopeUsers.stream().mapToLong(User::getLegacyWorshipAttended).sum();
+            legacyFamAtt     = scopeUsers.stream().mapToLong(User::getLegacyFamAttended).sum();
+        }
+
+        long worshipAtt = newWorship + legacyWorshipAtt;
+        long famAtt     = newFam     + legacyFamAtt;
 
         Map<String, Object> result = new HashMap<>();
         result.put("scope", scope);
         result.put("year", year);
         result.put("from", from);
         result.put("to", to);
-        result.put("totalRecords", newTotal);
+        result.put("totalRecords", rows.size());
         result.put("worshipPresent", worshipAtt);
         result.put("onlinePresent", newOnline);
         result.put("famPresent", famAtt);
-        result.put("worshipRate", worshipTot == 0 ? 0.0 : Math.round((double) worshipAtt / worshipTot * 100.0));
-        result.put("onlineRate",  onlineTot  == 0 ? 0.0 : Math.round((double) newOnline  / onlineTot  * 100.0));
-        result.put("famRate",     famTot     == 0 ? 0.0 : Math.round((double) famAtt     / famTot     * 100.0));
+        result.put("worshipRate", denominator == 0 ? 0.0 : Math.round((double) worshipAtt / denominator * 100.0));
+        result.put("onlineRate",  denominator == 0 ? 0.0 : Math.round((double) newOnline  / denominator * 100.0));
+        result.put("famRate",     denominator == 0 ? 0.0 : Math.round((double) famAtt     / denominator * 100.0));
         return result;
     }
 
