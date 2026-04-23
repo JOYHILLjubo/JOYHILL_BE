@@ -165,9 +165,10 @@ public class OrganizationService {
         Map<Long, List<Attendance>> byUser = attendances.stream()
                 .collect(Collectors.groupingBy(Attendance::getUserId));
 
+        boolean isCurrentYear = (targetYear == LocalDate.now().getYear());
         return members.stream()
                 .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(Collator.getInstance(Locale.KOREAN)::compare)))
-                .map(m -> userMapWithRate(m, byUser.getOrDefault(m.getId(), List.of()), totalSundays))
+                .map(m -> userMapWithRate(m, byUser.getOrDefault(m.getId(), List.of()), totalSundays, isCurrentYear))
                 .toList();
     }
 
@@ -368,19 +369,26 @@ public class OrganizationService {
                 .toList();
     }
 
-    private Map<String, Object> userMapWithRate(User user, List<Attendance> records, int totalSundays) {
+    private Map<String, Object> userMapWithRate(User user, List<Attendance> records, int totalSundays, boolean isCurrentYear) {
         Map<String, Object> map = userBasicMap(user);
-        if (totalSundays == 0) {
-            map.put("worshipRate", 0);
-            map.put("onlineRate", 0);
-            map.put("famRate", 0);
+
+        long worship = records.stream().filter(Attendance::isWorshipPresent).count();
+        long online  = records.stream().filter(Attendance::isOnlinePresent).count();
+        long fam     = records.stream().filter(Attendance::isFamPresent).count();
+
+        if (isCurrentYear) {
+            int worshipTotal = totalSundays + user.getLegacyWorshipTotal();
+            int famTotal     = totalSundays + user.getLegacyFamTotal();
+            long worshipAtt  = worship + user.getLegacyWorshipAttended();
+            long famAtt      = fam     + user.getLegacyFamAttended();
+
+            map.put("worshipRate", worshipTotal == 0 ? 0 : (int) Math.round((double) worshipAtt / worshipTotal * 100));
+            map.put("onlineRate",  totalSundays  == 0 ? 0 : (int) Math.round((double) online    / totalSundays  * 100));
+            map.put("famRate",     famTotal      == 0 ? 0 : (int) Math.round((double) famAtt    / famTotal      * 100));
         } else {
-            long worship = records.stream().filter(Attendance::isWorshipPresent).count();
-            long online = records.stream().filter(Attendance::isOnlinePresent).count();
-            long fam = records.stream().filter(Attendance::isFamPresent).count();
-            map.put("worshipRate", (int) Math.round((double) worship / totalSundays * 100));
-            map.put("onlineRate", (int) Math.round((double) online / totalSundays * 100));
-            map.put("famRate", (int) Math.round((double) fam / totalSundays * 100));
+            map.put("worshipRate", totalSundays == 0 ? 0 : (int) Math.round((double) worship / totalSundays * 100));
+            map.put("onlineRate",  totalSundays == 0 ? 0 : (int) Math.round((double) online  / totalSundays * 100));
+            map.put("famRate",     totalSundays == 0 ? 0 : (int) Math.round((double) fam     / totalSundays * 100));
         }
         return map;
     }

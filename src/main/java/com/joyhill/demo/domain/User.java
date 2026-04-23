@@ -49,6 +49,18 @@ public class User extends BaseTimeEntity {
     @Column(columnDefinition = "TEXT")
     private String note;
 
+    @Column(name = "legacy_worship_attended", nullable = false)
+    private int legacyWorshipAttended = 0;
+
+    @Column(name = "legacy_worship_total", nullable = false)
+    private int legacyWorshipTotal = 0;
+
+    @Column(name = "legacy_fam_attended", nullable = false)
+    private int legacyFamAttended = 0;
+
+    @Column(name = "legacy_fam_total", nullable = false)
+    private int legacyFamTotal = 0;
+
     public Long getId() { return id; }
 
     public String getName() { return name; }
@@ -80,4 +92,9 @@ public class User extends BaseTimeEntity {
 
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }
+
+    public int getLegacyWorshipAttended() { return legacyWorshipAttended; }
+    public int getLegacyWorshipTotal() { return legacyWorshipTotal; }
+    public int getLegacyFamAttended() { return legacyFamAttended; }
+    public int getLegacyFamTotal() { return legacyFamTotal; }
 }
