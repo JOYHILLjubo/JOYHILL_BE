@@ -377,14 +377,14 @@ public class OrganizationService {
         long fam     = records.stream().filter(Attendance::isFamPresent).count();
 
         if (isCurrentYear) {
-            int worshipTotal = totalSundays + user.getLegacyWorshipTotal();
-            int famTotal     = totalSundays + user.getLegacyFamTotal();
-            long worshipAtt  = worship + user.getLegacyWorshipAttended();
-            long famAtt      = fam     + user.getLegacyFamAttended();
+            // 분모 = 올해 총 주차 수로 통일, 분자만 legacy + 신규 합산
+            // 이렇게 해야 16주 전체 개근 시 100% 방지차없이 달성 가능
+            long worshipAtt = worship + user.getLegacyWorshipAttended();
+            long famAtt     = fam     + user.getLegacyFamAttended();
 
-            map.put("worshipRate", worshipTotal == 0 ? 0 : (int) Math.round((double) worshipAtt / worshipTotal * 100));
-            map.put("onlineRate",  totalSundays  == 0 ? 0 : (int) Math.round((double) online    / totalSundays  * 100));
-            map.put("famRate",     famTotal      == 0 ? 0 : (int) Math.round((double) famAtt    / famTotal      * 100));
+            map.put("worshipRate", totalSundays == 0 ? 0 : (int) Math.round((double) worshipAtt / totalSundays * 100));
+            map.put("onlineRate",  totalSundays == 0 ? 0 : (int) Math.round((double) online     / totalSundays * 100));
+            map.put("famRate",     totalSundays == 0 ? 0 : (int) Math.round((double) famAtt     / totalSundays * 100));
         } else {
             map.put("worshipRate", totalSundays == 0 ? 0 : (int) Math.round((double) worship / totalSundays * 100));
             map.put("onlineRate",  totalSundays == 0 ? 0 : (int) Math.round((double) online  / totalSundays * 100));
