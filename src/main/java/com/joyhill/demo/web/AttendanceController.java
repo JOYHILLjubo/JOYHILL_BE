@@ -44,6 +44,13 @@ public class AttendanceController {
         return BaseResponse.success(attendanceService.history(authUser, famName, year, month));
     }
 
+    @GetMapping("/check-status")
+    public BaseResponse<List<Map<String, Object>>> checkStatus(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return BaseResponse.success(attendanceService.checkStatus(authUser, date));
+    }
+
     @GetMapping("/stats")
     public BaseResponse<Map<String, Object>> stats(
             @AuthenticationPrincipal AuthUser authUser,

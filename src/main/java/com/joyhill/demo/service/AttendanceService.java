@@ -170,6 +170,34 @@ public class AttendanceService {
         return result;
     }
 
+    /**
+     * 교역자용: 특정 날짜 팸별 출석체크 입력 여부 조회
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> checkStatus(AuthUser authUser, LocalDate date) {
+        if (authUser.role() != Role.pastor && authUser.role() != Role.admin) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "교역자/관리자만 접근할 수 있습니다.");
+        }
+        List<Fam> allFams = famRepository.findAll();
+        List<Attendance> records = attendanceRepository.findByDateBetween(date, date);
+        java.util.Set<String> checkedFams = records.stream()
+                .map(Attendance::getFamName)
+                .collect(java.util.stream.Collectors.toSet());
+
+        return allFams.stream()
+                .map(fam -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("famName", fam.getName());
+                    m.put("villageName", fam.getVillageName());
+                    m.put("hasRecord", checkedFams.contains(fam.getName()));
+                    return m;
+                })
+                .sorted(java.util.Comparator
+                        .comparing((Map<String, Object> m) -> String.valueOf(m.get("villageName")))
+                        .thenComparing(m -> String.valueOf(m.get("famName"))))
+                .toList();
+    }
+
     private void update(Attendance attendance, String famName, LocalDate date,
                         AuthDtos.AttendanceRecordRequest record) {
         userRepository.findById(record.userId())
