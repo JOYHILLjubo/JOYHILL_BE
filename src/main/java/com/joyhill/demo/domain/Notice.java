@@ -41,6 +41,9 @@ public class Notice extends BaseTimeEntity {
     @Column(name = "link_url", length = 500)
     private String linkUrl;
 
+    @Column(name = "view_count", nullable = false)
+    private int viewCount = 0;
+
     public Long getId() {
         return id;
     }
@@ -123,5 +126,13 @@ public class Notice extends BaseTimeEntity {
 
     public void setLinkUrl(String linkUrl) {
         this.linkUrl = linkUrl;
+    }
+
+    public int getViewCount() {
+        return viewCount;
+    }
+
+    public void incrementViewCount() {
+        this.viewCount++;
     }
 }

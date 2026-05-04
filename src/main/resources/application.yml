@@ -9,6 +9,9 @@ spring:
     url: jdbc:postgresql://localhost:5432/joy
     username: ${DB_USERNAME:joy_user}
     password: ${DB_PASSWORD:your_password}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
   jpa:
     hibernate:
       ddl-auto: update

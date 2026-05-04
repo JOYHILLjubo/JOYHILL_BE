@@ -52,9 +52,10 @@ public class NoticeService {
         );
     }
 
-    @Transactional(readOnly = true)
     public Map<String, Object> detail(Long id) {
-        return toMap(getNotice(id));
+        Notice notice = getNotice(id);
+        notice.incrementViewCount();
+        return toMap(notice);
     }
 
     public Map<String, Object> create(AuthUser authUser, AuthDtos.NoticeRequest request) {
@@ -128,6 +129,7 @@ public class NoticeService {
         map.put("fileUrl", notice.getFileUrl());
         map.put("linkUrl", notice.getLinkUrl());
         map.put("createdAt", notice.getCreatedAt());
+        map.put("viewCount", notice.getViewCount());
         return map;
     }
 }
