@@ -37,7 +37,7 @@ public class NoticeService {
         String keyword = search == null ? "" : search;
         Page<Notice> result;
         if (tag != null && !tag.isBlank()) {
-            result = noticeRepository.findByTagAndTitleContainingIgnoreCaseOrderByPinnedDescCreatedAtDesc(
+            result = noticeRepository.findByTagContainingAndTitleContainingIgnoreCase(
                     tag, keyword, PageRequest.of(page, size));
         } else {
             result = noticeRepository.findByTitleContainingIgnoreCaseOrderByPinnedDescCreatedAtDesc(
