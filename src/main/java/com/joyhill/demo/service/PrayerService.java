@@ -133,10 +133,11 @@ public class PrayerService {
         map.put("year", prayer.getYear());
         map.put("month", prayer.getMonth());
         map.put("week", prayer.getWeek());
-        String name = userRepository.findById(prayer.getUserId())
-                .map(user -> user.getName())
-                .orElse("");
-        map.put("name", name);
+        userRepository.findById(prayer.getUserId()).ifPresent(user -> {
+            map.put("name", user.getName());
+            map.put("avatarKey", user.getAvatarKey());
+        });
+        if (!map.containsKey("name")) map.put("name", "");
         return map;
     }
 }

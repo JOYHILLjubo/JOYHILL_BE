@@ -356,6 +356,7 @@ public class OrganizationService {
         map.put("birth", user.getBirth());
         map.put("role", user.getRole());
         map.put("note", user.getNote());
+        map.put("avatarKey", user.getAvatarKey());
         return map;
     }
 
