@@ -61,6 +61,9 @@ public class User extends BaseTimeEntity {
     @Column(name = "legacy_fam_total", nullable = false)
     private int legacyFamTotal = 0;
 
+    @Column(name = "avatar_key", length = 30)
+    private String avatarKey;
+
     public Long getId() { return id; }
 
     public String getName() { return name; }
@@ -97,4 +100,7 @@ public class User extends BaseTimeEntity {
     public int getLegacyWorshipTotal() { return legacyWorshipTotal; }
     public int getLegacyFamAttended() { return legacyFamAttended; }
     public int getLegacyFamTotal() { return legacyFamTotal; }
+
+    public String getAvatarKey() { return avatarKey; }
+    public void setAvatarKey(String avatarKey) { this.avatarKey = avatarKey; }
 }

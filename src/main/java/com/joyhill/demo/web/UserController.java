@@ -69,4 +69,11 @@ public class UserController {
         userService.resetPassword(authUser, id);
         return BaseResponse.success();
     }
+
+    @PatchMapping("/me/avatar")
+    public BaseResponse<Void> updateAvatar(@AuthenticationPrincipal AuthUser authUser,
+                                           @RequestBody AuthDtos.AvatarUpdateRequest request) {
+        userService.updateAvatar(authUser, request.avatarKey());
+        return BaseResponse.success();
+    }
 }

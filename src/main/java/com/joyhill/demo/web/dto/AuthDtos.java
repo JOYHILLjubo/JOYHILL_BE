@@ -16,7 +16,7 @@ public final class AuthDtos {
 
     public record UserSummary(Long id, String name, Role role, String fam, String village,
                               List<String> teams, List<String> teamRoles, String phone,
-                              boolean passwordChanged) {}
+                              boolean passwordChanged, String avatarKey) {}
 
     // ── User ──
     public record UserCreateRequest(String name, String phone, String birth, Role role,
@@ -64,6 +64,9 @@ public final class AuthDtos {
     public record SubTeamCreateRequest(String subTeamName) {}
     public record SubTeamMemberAddRequest(Long userId) {}
     public record SubTeamLeaderRequest(Long userId) {}
+
+    // ── Avatar ──
+    public record AvatarUpdateRequest(String avatarKey) {}
 
     // ── Schedule ──
     public record ScheduleRequest(LocalDate date, String content, boolean showDDay) {}

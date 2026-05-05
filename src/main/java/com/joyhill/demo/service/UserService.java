@@ -125,6 +125,11 @@ public class UserService {
         user.setPasswordChanged(false);
     }
 
+    public void updateAvatar(AuthUser authUser, String avatarKey) {
+        User user = getUser(authUser.userId());
+        user.setAvatarKey(avatarKey);
+    }
+
     private Map<String, Object> toMap(User user) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", user.getId());

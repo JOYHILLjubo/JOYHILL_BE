@@ -136,7 +136,7 @@ public class AuthService {
                 user.getId(), user.getName(), user.getRole(),
                 user.getFamName(), user.getVillageName(),
                 teams, teamRoles, PhoneUtils.format(user.getPhone()),
-                user.isPasswordChanged()
+                user.isPasswordChanged(), user.getAvatarKey()
         );
     }
 }
