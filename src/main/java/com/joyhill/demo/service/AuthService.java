@@ -64,7 +64,7 @@ public class AuthService {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), user.getRole());
         user.setRefreshToken(hashToken(refreshToken));
-        return new AuthDtos.LoginResponse(accessToken, toSummary(user));
+        return new AuthDtos.LoginResponse(accessToken, refreshToken, toSummary(user));
     }
 
     public String getStoredRefreshToken(Long userId) {

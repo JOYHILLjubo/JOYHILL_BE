@@ -11,7 +11,7 @@ public final class AuthDtos {
     // ── Auth ──
     public record LoginRequest(String phone, String password) {}
     public record ChangePasswordRequest(String currentPassword, String newPassword) {}
-    public record LoginResponse(String accessToken, UserSummary user) {}
+    public record LoginResponse(String accessToken, String refreshToken, UserSummary user) {}
     public record TokenResponse(String accessToken) {}
 
     public record UserSummary(Long id, String name, Role role, String fam, String village,

@@ -25,7 +25,7 @@ public class AuthController {
                                                       HttpServletResponse response) {
         AuthDtos.LoginResponse login = authService.login(request);
         response.addHeader(HttpHeaders.SET_COOKIE, authService.refreshCookie(
-                authService.getStoredRefreshToken(login.user().id())
+                login.refreshToken()
         ).toString());
         return BaseResponse.success(login);
     }
