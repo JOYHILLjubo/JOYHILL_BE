@@ -21,12 +21,12 @@ public class OrganizationController {
     }
 
     @GetMapping("/org/structure")
-    public BaseResponse<Map<String, Object>> structure() {
+    public BaseResponse<Map<String, Object>> structure(@AuthenticationPrincipal AuthUser authUser) {
         return BaseResponse.success(organizationService.structure());
     }
 
     @GetMapping("/villages")
-    public BaseResponse<List<Map<String, Object>>> villages() {
+    public BaseResponse<List<Map<String, Object>>> villages(@AuthenticationPrincipal AuthUser authUser) {
         return BaseResponse.success(organizationService.villages());
     }
 
@@ -44,7 +44,7 @@ public class OrganizationController {
     }
 
     @GetMapping("/fams")
-    public BaseResponse<List<Map<String, Object>>> fams() {
+    public BaseResponse<List<Map<String, Object>>> fams(@AuthenticationPrincipal AuthUser authUser) {
         return BaseResponse.success(organizationService.fams());
     }
 

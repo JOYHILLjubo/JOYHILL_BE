@@ -37,7 +37,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseResponse<Void>> handleOther(Exception e) {
+        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Unhandled exception", e);
         return ResponseEntity.internalServerError()
-                .body(BaseResponse.error(ErrorCode.VALIDATION_ERROR, e.getMessage()));
+                .body(BaseResponse.error(ErrorCode.VALIDATION_ERROR, "서버 오류가 발생했습니다."));
     }
 }

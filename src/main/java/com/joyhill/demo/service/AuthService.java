@@ -17,6 +17,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 
 @Service
@@ -59,7 +63,7 @@ public class AuthService {
 
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), user.getRole());
-        user.setRefreshToken(refreshToken);
+        user.setRefreshToken(hashToken(refreshToken));
         return new AuthDtos.LoginResponse(accessToken, toSummary(user));
     }
 
@@ -73,7 +77,7 @@ public class AuthService {
         Long userId = Long.valueOf(claims.getSubject());
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, "다시 로그인해주세요."));
-        if (!refreshToken.equals(user.getRefreshToken())) {
+        if (!hashToken(refreshToken).equals(user.getRefreshToken())) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "다시 로그인해주세요.");
         }
         return new AuthDtos.TokenResponse(jwtTokenProvider.generateAccessToken(user.getId(), user.getRole()));
@@ -105,6 +109,7 @@ public class AuthService {
         return ResponseCookie.from(jwtProperties.getRefreshCookieName(), refreshToken)
                 .httpOnly(true).path("/")
                 .maxAge(jwtProperties.getRefreshExpiration() / 1000)
+                .secure(true)
                 .sameSite("Lax").build();
     }
 
@@ -125,6 +130,16 @@ public class AuthService {
     private User getUser(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+    }
+
+    private String hashToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
     }
 
     public AuthDtos.UserSummary toSummary(User user) {

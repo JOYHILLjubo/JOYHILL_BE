@@ -3,6 +3,7 @@ package com.joyhill.demo.security;
 import com.joyhill.demo.common.api.BaseResponse;
 import com.joyhill.demo.common.api.ErrorCode;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -51,8 +52,7 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // 개발용: 로컬 프론트 + 배포 프론트 모두 허용
-        config.setAllowedOriginPatterns(List.of("http://localhost:5173", "http://localhost:3000", "http://*", "https://*"));
+        config.setAllowedOriginPatterns(List.of("http://localhost:5173", "http://localhost:3000", "https://joyhill.kro.kr"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true); // Cookie(Refresh Token) 전송을 위해 필요
@@ -61,6 +61,15 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    @Bean
+    public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter rateLimitFilter) {
+        FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(rateLimitFilter);
+        registration.addUrlPatterns("/api/auth/login");
+        registration.setOrder(1);
+        return registration;
     }
 
     @Bean
