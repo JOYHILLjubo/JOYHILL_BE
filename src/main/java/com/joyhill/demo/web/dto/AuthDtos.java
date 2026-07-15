@@ -12,7 +12,7 @@ public final class AuthDtos {
     public record LoginRequest(String phone, String password) {}
     public record ChangePasswordRequest(String currentPassword, String newPassword) {}
     public record LoginResponse(String accessToken, String refreshToken, UserSummary user) {}
-    public record TokenResponse(String accessToken) {}
+    public record TokenResponse(String accessToken, String refreshToken) {}
 
     public record UserSummary(Long id, String name, Role role, String fam, String village,
                               List<String> teams, List<String> teamRoles, String phone,

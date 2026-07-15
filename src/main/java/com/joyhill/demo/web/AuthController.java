@@ -31,8 +31,12 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public BaseResponse<AuthDtos.TokenResponse> refresh(HttpServletRequest request) {
-        return BaseResponse.success(authService.refresh(request));
+    public BaseResponse<AuthDtos.TokenResponse> refresh(HttpServletRequest request, HttpServletResponse response) {
+        AuthDtos.TokenResponse result = authService.refresh(request);
+        response.addHeader(HttpHeaders.SET_COOKIE, authService.refreshCookie(
+                result.refreshToken()
+        ).toString());
+        return BaseResponse.success(result);
     }
 
     @PostMapping("/logout")

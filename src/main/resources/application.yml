@@ -25,7 +25,7 @@ spring:
 jwt:
   secret: ${JWT_SECRET:your_jwt_secret_key_min_32_chars_your_jwt_secret_key}
   access-expiration: 1800000
-  refresh-expiration: 604800000
+  refresh-expiration: 7776000000
   refresh-cookie-name: JOY_REFRESH_TOKEN
 
 aws:

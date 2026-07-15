@@ -209,9 +209,15 @@ public class OrganizationService {
     public Map<String, Object> updateFamMember(AuthUser authUser, Long id, AuthDtos.FamMemberUpdateRequest request) {
         User user = getUser(id);
         accessGuard.requireLeader(authUser);
+        boolean isPastorOrAdmin = authUser.role() == Role.pastor || authUser.role() == Role.admin;
+        // 미배정 인원을 검색해서 본인 팸으로 편입시키는 경우: leader도 허용
+        boolean leaderClaimingUnassigned = authUser.role() == Role.leader
+                && user.getFamName() == null
+                && request.famName() != null
+                && request.famName().equals(authUser.famName());
         if (user.getFamName() != null) {
             accessGuard.requireFamScope(authUser, user.getFamName());
-        } else {
+        } else if (!isPastorOrAdmin && !leaderClaimingUnassigned) {
             accessGuard.requirePastorOrAdmin(authUser);
         }
         user.setName(request.name());
@@ -225,8 +231,8 @@ public class OrganizationService {
             user.setBirth(birth6);
         }
         user.setNote(request.note());
-        // 팸 변경 처리 (pastor/admin만 가능)
-        if (request.famName() != null && (authUser.role() == Role.pastor || authUser.role() == Role.admin)) {
+        // 팸 변경 처리: pastor/admin은 임의 이동, leader는 미배정 인원을 본인 팸으로 편입만 가능
+        if (request.famName() != null && (isPastorOrAdmin || leaderClaimingUnassigned)) {
             String newFamName = request.famName().isBlank() ? null : request.famName();
             user.setFamName(newFamName);
             if (newFamName != null) {

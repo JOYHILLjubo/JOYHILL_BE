@@ -80,7 +80,13 @@ public class AuthService {
         if (!hashToken(refreshToken).equals(user.getRefreshToken())) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "다시 로그인해주세요.");
         }
-        return new AuthDtos.TokenResponse(jwtTokenProvider.generateAccessToken(user.getId(), user.getRole()));
+        // 슬라이딩 만료: 갱신할 때마다 refresh token도 새로 발급 → 꾸준히 쓰는 한 재로그인 없음
+        String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), user.getRole());
+        user.setRefreshToken(hashToken(newRefreshToken));
+        return new AuthDtos.TokenResponse(
+                jwtTokenProvider.generateAccessToken(user.getId(), user.getRole()),
+                newRefreshToken
+        );
     }
 
     public void logout(AuthUser authUser) {
@@ -120,10 +126,14 @@ public class AuthService {
 
     private String extractRefreshToken(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
-        if (cookies == null) throw new ApiException(ErrorCode.UNAUTHORIZED, "리프레시 토큰이 없습니다.");
-        for (Cookie cookie : cookies) {
-            if (jwtProperties.getRefreshCookieName().equals(cookie.getName())) return cookie.getValue();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (jwtProperties.getRefreshCookieName().equals(cookie.getName())) return cookie.getValue();
+            }
         }
+        // iOS PWA 등 쿠키가 유지되지 않는 환경을 위한 폴백 (FE가 localStorage에 보관 후 헤더로 전달)
+        String header = request.getHeader("X-Refresh-Token");
+        if (header != null && !header.isBlank()) return header;
         throw new ApiException(ErrorCode.UNAUTHORIZED, "리프레시 토큰이 없습니다.");
     }
 
