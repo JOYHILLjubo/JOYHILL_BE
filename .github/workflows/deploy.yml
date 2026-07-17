@@ -61,6 +61,8 @@ jobs:
                 favorite BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMP NOT NULL DEFAULT now()
             );
+            ALTER TABLE sermon_notes OWNER TO joy_user;
+            ALTER SEQUENCE IF EXISTS sermon_notes_id_seq OWNER TO joy_user;
             SQL
 
       - name: Restart service on EC2
