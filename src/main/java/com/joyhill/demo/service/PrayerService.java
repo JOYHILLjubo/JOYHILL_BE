@@ -97,6 +97,14 @@ public class PrayerService {
         return toMap(prayer);
     }
 
+    public void deletePersonal(AuthUser authUser, Long id) {
+        Prayer prayer = getPrayer(id);
+        if (!authUser.userId().equals(prayer.getUserId())) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "본인 기도제목만 삭제할 수 있습니다.");
+        }
+        prayerRepository.delete(prayer);
+    }
+
     public Map<String, Object> upsertCommon(AuthUser authUser, AuthDtos.CommonPrayerRequest request) {
         // 교역자/관리자: 팸 공동 기도제목 작성 불가
         if (authUser.role() == Role.pastor || authUser.role() == Role.admin) {

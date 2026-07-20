@@ -46,4 +46,10 @@ public class PrayerController {
                                                           @RequestBody AuthDtos.CommonPrayerRequest request) {
         return BaseResponse.success(prayerService.upsertCommon(authUser, request));
     }
+
+    @DeleteMapping("/{id}")
+    public BaseResponse<Void> delete(@AuthenticationPrincipal AuthUser authUser, @PathVariable Long id) {
+        prayerService.deletePersonal(authUser, id);
+        return BaseResponse.success();
+    }
 }
