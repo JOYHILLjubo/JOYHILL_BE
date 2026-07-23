@@ -20,8 +20,8 @@ public class CommunityPrayerController {
     }
 
     @GetMapping
-    public BaseResponse<List<Map<String, Object>>> list() {
-        return BaseResponse.success(communityPrayerService.list());
+    public BaseResponse<List<Map<String, Object>>> list(@AuthenticationPrincipal AuthUser authUser) {
+        return BaseResponse.success(communityPrayerService.list(authUser.userId()));
     }
 
     @PostMapping
@@ -29,6 +29,13 @@ public class CommunityPrayerController {
             @AuthenticationPrincipal AuthUser authUser,
             @RequestBody Map<String, String> body) {
         return BaseResponse.success(communityPrayerService.create(authUser, body.get("content")));
+    }
+
+    @PostMapping("/{id}/pray")
+    public BaseResponse<Map<String, Object>> togglePray(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long id) {
+        return BaseResponse.success(communityPrayerService.togglePray(authUser, id));
     }
 
     @DeleteMapping("/{id}")

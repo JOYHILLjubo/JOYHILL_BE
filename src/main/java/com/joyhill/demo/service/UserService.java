@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Collator;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -67,6 +68,43 @@ public class UserService {
         return users.stream()
                 .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(Collator.getInstance(Locale.KOREAN)::compare)))
                 .map(this::toMap).toList();
+    }
+
+    // User.birth는 LocalDate가 아니라 "YYMMDD" 6자리 문자열이라 자바에서 직접 파싱해서 이번 달 생일자를 거른다.
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> birthdaysThisMonth() {
+        LocalDate today = LocalDate.now();
+        int currentMonth = today.getMonthValue();
+        int currentDay = today.getDayOfMonth();
+
+        return userRepository.findAll().stream()
+                .filter(u -> u.getRole() != Role.admin)
+                .filter(u -> u.getBirth() != null && u.getBirth().length() == 6)
+                .filter(u -> parseBirthMonth(u.getBirth()) == currentMonth)
+                .sorted(Comparator.comparingInt(u -> parseBirthDay(u.getBirth())))
+                .map(u -> toBirthdayMap(u, currentDay))
+                .toList();
+    }
+
+    private int parseBirthMonth(String birth) {
+        return Integer.parseInt(birth.substring(2, 4));
+    }
+
+    private int parseBirthDay(String birth) {
+        return Integer.parseInt(birth.substring(4, 6));
+    }
+
+    private Map<String, Object> toBirthdayMap(User user, int currentDay) {
+        int day = parseBirthDay(user.getBirth());
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", user.getId());
+        map.put("name", user.getName());
+        map.put("famName", user.getFamName());
+        map.put("villageName", user.getVillageName());
+        map.put("avatarKey", user.getAvatarKey());
+        map.put("day", day);
+        map.put("isToday", day == currentDay);
+        return map;
     }
 
     public Map<String, Object> create(AuthUser authUser, AuthDtos.UserCreateRequest request) {

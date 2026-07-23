@@ -39,4 +39,6 @@ sh gradlew bootRun --args=--spring.profiles.active=local
 ```
 `DataInitializer`가 최초 기동 시 테스트 계정을 시드함(예: `010-9999-0000` / 초기 비번 `001225`, member 역할). H2 콘솔: `/h2-console`.
 
+**알려진 이슈 — 로컬 H2에서 `prayers` 테이블이 안 생김 (2026-07-23 확인, 미해결)**: `Prayer.month` 컬럼이 매핑하는 `month`가 H2(MODE=PostgreSQL)의 예약어라 `ddl-auto: update`의 CREATE TABLE DDL이 파싱 에러로 조용히 실패함(`Started DemoApplication`은 뜨지만 `prayers` 테이블만 없음) — `/api/prayers` 관련 로컬 테스트가 전부 500으로 막힘. **`application-local.yml`에 `hibernate.globally_quoted_identifiers: true`를 넣는 방식으로 고쳐보려 했지만, 다른 테이블(`teams` 등) 조회 SQL이 언쿼팅 상태로 생성돼서 "Table not found"가 나며 앱 전체가 깨짐 — 이 방법은 쓰지 말 것.** 운영 Postgres는 이 문제가 없음(`month`가 예약어 아님, `ddl-auto: validate`라 이미 존재하는 스키마 그대로 씀). 로컬에서 기도 기능을 테스트해야 하면 엔티티 컬럼명 자체를 바꾸는 방법(운영 스키마와의 매핑 확인 필요)부터 검토할 것.
+
 프론트(JOYHILL_FE)와 함께 띄울 때 프론트는 **반드시 5173 포트**로 실행할 것 — CORS 허용 origin이 `localhost:5173`/`localhost:3000`/운영 도메인뿐이라 다른 포트는 403으로 막힘(`SecurityConfig.corsConfigurationSource()`).

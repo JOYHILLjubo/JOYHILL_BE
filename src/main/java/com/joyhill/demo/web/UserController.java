@@ -30,6 +30,12 @@ public class UserController {
         return BaseResponse.success(userService.me(authUser));
     }
 
+    // 이달의 생일 - 청년부 전체 공개(권한 제한 없음)
+    @GetMapping("/birthdays")
+    public BaseResponse<List<Map<String, Object>>> birthdays() {
+        return BaseResponse.success(userService.birthdaysThisMonth());
+    }
+
     @GetMapping
     public BaseResponse<List<Map<String, Object>>> users(@AuthenticationPrincipal AuthUser authUser,
                                                          @RequestParam(required = false) Role role,
