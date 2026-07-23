@@ -81,9 +81,14 @@ public class UserService {
                 .filter(u -> u.getRole() != Role.admin)
                 .filter(u -> u.getBirth() != null && u.getBirth().length() == 6)
                 .filter(u -> parseBirthMonth(u.getBirth()) == currentMonth)
-                .sorted(Comparator.comparingInt(u -> parseBirthDay(u.getBirth())))
+                .sorted(Comparator.comparingInt(u -> birthdaySortKey(parseBirthDay(u.getBirth()), currentDay)))
                 .map(u -> toBirthdayMap(u, currentDay))
                 .toList();
+    }
+
+    // 아직 안 지난 사람(오늘 포함)을 가까운 순서대로 앞에, 이미 지난 사람은 뒤에(최근에 지난 사람부터) 정렬하기 위한 키
+    private int birthdaySortKey(int day, int currentDay) {
+        return day >= currentDay ? (day - currentDay) : (1000 + (currentDay - day));
     }
 
     private int parseBirthMonth(String birth) {
