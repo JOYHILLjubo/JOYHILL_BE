@@ -1,0 +1,62 @@
+name: (7) Set up server cleanup (journald cap + apt auto-cleanup + disable unused daemons)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure automatic cleanup on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            set -e
+
+            echo "=== 1) Cap journald disk usage (currently unbounded) ==="
+            if ! grep -q "^SystemMaxUse=" /etc/systemd/journald.conf; then
+              echo "SystemMaxUse=100M" | sudo tee -a /etc/systemd/journald.conf > /dev/null
+            else
+              sudo sed -i "s|^SystemMaxUse=.*|SystemMaxUse=100M|" /etc/systemd/journald.conf
+            fi
+            sudo systemctl restart systemd-journald
+            echo "journald capped at 100M."
+
+            echo "=== 2) One-time cleanup: old kernels + apt cache ==="
+            sudo apt-get autoremove -y
+            sudo apt-get autoclean -y
+
+            echo "=== 3) Weekly auto-cleanup timer (apt autoremove/autoclean) ==="
+            sudo tee /etc/systemd/system/weekly-apt-cleanup.service > /dev/null <<'EOF'
+            [Unit]
+            Description=Weekly apt autoremove/autoclean
+
+            [Service]
+            Type=oneshot
+            ExecStart=/usr/bin/apt-get autoremove -y
+            ExecStart=/usr/bin/apt-get autoclean -y
+            EOF
+            sudo tee /etc/systemd/system/weekly-apt-cleanup.timer > /dev/null <<'EOF'
+            [Unit]
+            Description=Run weekly-apt-cleanup weekly
+
+            [Timer]
+            OnCalendar=weekly
+            Persistent=true
+
+            [Install]
+            WantedBy=timers.target
+            EOF
+            sudo systemctl daemon-reload
+            sudo systemctl enable --now weekly-apt-cleanup.timer
+            echo "weekly-apt-cleanup.timer enabled."
+
+            echo "=== 4) Disable unused daemons (fwupd, multipathd — not applicable on this EC2 setup) ==="
+            sudo systemctl disable --now fwupd.service 2>&1 || echo "fwupd not active/found, skipping"
+            sudo systemctl disable --now multipathd.service 2>&1 || echo "multipathd not active/found, skipping"
+
+            echo "=== Done. Current memory: ==="
+            free -h
