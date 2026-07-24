@@ -55,8 +55,10 @@ jobs:
             echo "weekly-apt-cleanup.timer enabled."
 
             echo "=== 4) Disable unused daemons (fwupd, multipathd — not applicable on this EC2 setup) ==="
-            sudo systemctl disable --now fwupd.service 2>&1 || echo "fwupd not active/found, skipping"
-            sudo systemctl disable --now multipathd.service 2>&1 || echo "multipathd not active/found, skipping"
+            # fwupd has no [Install] section (D-Bus/socket activated), so plain disable
+            # doesn't stick — mask it so nothing can reactivate it.
+            sudo systemctl mask --now fwupd.service 2>&1 || echo "fwupd not active/found, skipping"
+            sudo systemctl disable --now multipathd.service 2>&1 || echo "multipathd already disabled, skipping"
 
             echo "=== Done. Current memory: ==="
             free -h
