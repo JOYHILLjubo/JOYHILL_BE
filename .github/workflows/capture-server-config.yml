@@ -1,0 +1,59 @@
+name: (4) Capture server config (for AWS migration)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump nginx / systemd / cron / backup script / certbot config
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            echo "===================================================="
+            echo "=== nginx effective config (nginx -T) ==="
+            echo "===================================================="
+            sudo nginx -T 2>&1 || echo "(nginx -T failed)"
+
+            echo "===================================================="
+            echo "=== joy-backend systemd unit ==="
+            echo "===================================================="
+            sudo cat /etc/systemd/system/joy-backend.service 2>&1 || echo "(unit file not found at expected path)"
+
+            echo "===================================================="
+            echo "=== crontab (ubuntu user) ==="
+            echo "===================================================="
+            crontab -l 2>&1 || echo "(no crontab for current user)"
+
+            echo "===================================================="
+            echo "=== crontab (root) ==="
+            echo "===================================================="
+            sudo crontab -l 2>&1 || echo "(no crontab for root)"
+
+            echo "===================================================="
+            echo "=== backup_db.sh (searching common locations) ==="
+            echo "===================================================="
+            sudo find / -maxdepth 4 -iname "backup_db.sh" 2>/dev/null | while read -r f; do
+              echo "--- $f ---"
+              sudo cat "$f"
+            done
+
+            echo "===================================================="
+            echo "=== certbot certificates ==="
+            echo "===================================================="
+            sudo certbot certificates 2>&1 || echo "(certbot not found / no certs)"
+
+            echo "===================================================="
+            echo "=== certbot renewal configs ==="
+            echo "===================================================="
+            sudo cat /etc/letsencrypt/renewal/*.conf 2>&1 || echo "(no renewal configs found)"
+
+            echo "===================================================="
+            echo "=== disk / memory (for sizing the new instance) ==="
+            echo "===================================================="
+            df -h
+            free -h
