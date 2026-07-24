@@ -1,0 +1,45 @@
+name: (6) Check disk / memory usage
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disk + memory diagnostics
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            echo "==================== disk usage ===================="
+            df -h /
+            echo
+            echo "==================== memory ===================="
+            free -h
+            echo
+            echo "==================== swap ===================="
+            swapon --show
+            echo
+            echo "==================== top 15 processes by RSS memory ===================="
+            ps -eo pid,ppid,cmd,%mem,rss --sort=-rss | head -16
+            echo
+            echo "==================== journal disk usage ===================="
+            sudo journalctl --disk-usage
+            echo
+            echo "==================== apt cache size ===================="
+            sudo du -sh /var/cache/apt/archives 2>/dev/null || echo "n/a"
+            echo
+            echo "==================== old kernels installed ===================="
+            dpkg -l 'linux-image-*' | grep ^ii | wc -l
+            echo
+            echo "==================== biggest dirs under /var ===================="
+            sudo du -sh /var/* 2>/dev/null | sort -rh | head -10
+            echo
+            echo "==================== local pg_dump backups ===================="
+            ls -lh /var/backups/joyhill-db/ 2>/dev/null || echo "n/a"
+            echo
+            echo "==================== postgres key memory settings ===================="
+            sudo -u postgres psql -c "SHOW shared_buffers;" -c "SHOW work_mem;" -c "SHOW max_connections;"
