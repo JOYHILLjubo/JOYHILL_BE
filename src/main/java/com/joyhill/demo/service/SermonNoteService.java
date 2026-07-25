@@ -25,9 +25,16 @@ public class SermonNoteService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> list(AuthUser authUser) {
-        return sermonNoteRepository.findByUserIdOrderByNoteDateDescIdDesc(authUser.userId())
-                .stream().map(this::toMap).toList();
+    public List<Map<String, Object>> list(AuthUser authUser, Long folderId, boolean unclassified) {
+        List<SermonNote> notes;
+        if (unclassified) {
+            notes = sermonNoteRepository.findByUserIdAndFolderIdIsNullOrderByNoteDateDescIdDesc(authUser.userId());
+        } else if (folderId != null) {
+            notes = sermonNoteRepository.findByUserIdAndFolderIdOrderByNoteDateDescIdDesc(authUser.userId(), folderId);
+        } else {
+            notes = sermonNoteRepository.findByUserIdOrderByNoteDateDescIdDesc(authUser.userId());
+        }
+        return notes.stream().map(this::toMap).toList();
     }
 
     public Map<String, Object> create(AuthUser authUser, AuthDtos.SermonNoteRequest request) {
@@ -68,11 +75,13 @@ public class SermonNoteService {
         note.setContent(request.content() != null ? request.content() : "");
         note.setVerseTags(request.verseTags());
         note.setChecklistJson(request.checklistJson());
+        note.setFolderId(request.folderId());
     }
 
     private Map<String, Object> toMap(SermonNote note) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", note.getId());
+        map.put("folderId", note.getFolderId());
         map.put("noteDate", note.getNoteDate());
         map.put("title", note.getTitle());
         map.put("content", note.getContent());

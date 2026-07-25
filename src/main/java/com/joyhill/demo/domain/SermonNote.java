@@ -15,6 +15,10 @@ public class SermonNote extends BaseTimeEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    // 미분류(폴더 없음)일 경우 null
+    @Column(name = "folder_id")
+    private Long folderId;
+
     @Column(name = "note_date", nullable = false)
     private LocalDate noteDate;
 
@@ -46,6 +50,14 @@ public class SermonNote extends BaseTimeEntity {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public Long getFolderId() {
+        return folderId;
+    }
+
+    public void setFolderId(Long folderId) {
+        this.folderId = folderId;
     }
 
     public LocalDate getNoteDate() {
