@@ -21,8 +21,10 @@ public class SermonNoteController {
     }
 
     @GetMapping
-    public BaseResponse<List<Map<String, Object>>> list(@AuthenticationPrincipal AuthUser authUser) {
-        return BaseResponse.success(sermonNoteService.list(authUser));
+    public BaseResponse<List<Map<String, Object>>> list(@AuthenticationPrincipal AuthUser authUser,
+                                                         @RequestParam(required = false) Long folderId,
+                                                         @RequestParam(required = false, defaultValue = "false") boolean unclassified) {
+        return BaseResponse.success(sermonNoteService.list(authUser, folderId, unclassified));
     }
 
     @PostMapping

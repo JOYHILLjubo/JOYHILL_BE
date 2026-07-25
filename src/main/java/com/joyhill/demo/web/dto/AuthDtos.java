@@ -51,7 +51,8 @@ public final class AuthDtos {
 
     // ── Sermon Note (개인 비공개 설교노트) ──
     public record SermonNoteRequest(LocalDate noteDate, String title, String content,
-                                    String verseTags, String checklistJson) {}
+                                    String verseTags, String checklistJson, Long folderId) {}
+    public record SermonNoteFolderRequest(String name) {}
 
     // ── Newcomer ──
     public record NewcomerRequest(String name, String phone, LocalDate birth,
