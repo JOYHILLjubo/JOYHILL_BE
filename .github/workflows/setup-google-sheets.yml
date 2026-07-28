@@ -44,15 +44,18 @@ jobs:
             sudo systemctl daemon-reload
             sudo systemctl restart joy-backend
 
+            # /api/users/birthdays는 인증이 필요한 엔드포인트라 토큰 없이 호출하면 항상 401이 남 —
+            # "200이어야 성공"이 아니라 "서버가 요청에 응답은 한다"(000/5xx가 아님)로 판단해야
+            # 정상 기동인데도 오탐 실패로 잡히는 걸 피할 수 있음.
             for i in $(seq 1 15); do
               sleep 1
               CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/users/birthdays || echo "000")
-              if [ "$CODE" = "200" ]; then
-                echo "Backend responded 200 after restart (attempt ${i}s) — setup complete."
+              if [ "$CODE" != "000" ] && [ "${CODE:0:1}" != "5" ]; then
+                echo "Backend responded (HTTP ${CODE}) after restart (attempt ${i}s) — setup complete."
                 break
               fi
               if [ "$i" = "15" ]; then
-                echo "WARNING: backend did not respond with 200 within 15s of restart."
+                echo "WARNING: backend did not respond within 15s of restart (last code: ${CODE})."
                 sudo systemctl status joy-backend --no-pager | tail -30
                 exit 1
               fi
