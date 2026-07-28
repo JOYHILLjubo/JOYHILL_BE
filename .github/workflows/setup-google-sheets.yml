@@ -1,0 +1,59 @@
+name: (8) Setup Google Sheets sync
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write service account key + register env vars on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            set -e
+
+            KEY_PATH=/opt/joyhill/google-sheets-key.json
+            SHEET_ID="${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}"
+            SERVICE_FILE=/etc/systemd/system/joy-backend.service
+
+            sudo tee "$KEY_PATH" > /dev/null <<'JSONKEY_EOF'
+            ${{ secrets.GOOGLE_SHEETS_KEY_JSON }}
+            JSONKEY_EOF
+            sudo chown ubuntu:ubuntu "$KEY_PATH"
+            sudo chmod 600 "$KEY_PATH"
+            echo "Service account key written to $KEY_PATH"
+
+            set_env_line () {
+              KEY="$1"
+              VALUE="$2"
+              if sudo grep -q "^Environment=${KEY}=" "$SERVICE_FILE"; then
+                sudo sed -i "s|^Environment=${KEY}=.*|Environment=${KEY}=${VALUE}|" "$SERVICE_FILE"
+              else
+                sudo sed -i "/^\[Service\]/a Environment=${KEY}=${VALUE}" "$SERVICE_FILE"
+              fi
+            }
+
+            set_env_line GOOGLE_SHEETS_CREDENTIALS_PATH "$KEY_PATH"
+            set_env_line GOOGLE_SHEETS_SPREADSHEET_ID "$SHEET_ID"
+            echo "systemd unit updated with Google Sheets env vars."
+
+            sudo systemctl daemon-reload
+            sudo systemctl restart joy-backend
+
+            for i in $(seq 1 15); do
+              sleep 1
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/users/birthdays || echo "000")
+              if [ "$CODE" = "200" ]; then
+                echo "Backend responded 200 after restart (attempt ${i}s) — setup complete."
+                break
+              fi
+              if [ "$i" = "15" ]; then
+                echo "WARNING: backend did not respond with 200 within 15s of restart."
+                sudo systemctl status joy-backend --no-pager | tail -30
+                exit 1
+              fi
+            done

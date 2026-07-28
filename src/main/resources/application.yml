@@ -32,3 +32,10 @@ aws:
   s3:
     bucket: joy-hill
     region: ap-northeast-2
+
+google:
+  sheets:
+    # 서비스 계정 키(JSON) 파일 경로. 비어있으면 동기화 기능이 비활성화됨(앱 기동에는 영향 없음).
+    credentials-path: ${GOOGLE_SHEETS_CREDENTIALS_PATH:}
+    spreadsheet-id: ${GOOGLE_SHEETS_SPREADSHEET_ID:}
+    tab-name: ${GOOGLE_SHEETS_TAB_NAME:회원백업}

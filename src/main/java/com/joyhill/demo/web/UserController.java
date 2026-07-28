@@ -4,6 +4,7 @@ import com.joyhill.demo.common.api.BaseResponse;
 import com.joyhill.demo.domain.Role;
 import com.joyhill.demo.security.AuthUser;
 import com.joyhill.demo.service.AuthService;
+import com.joyhill.demo.service.GoogleSheetsSyncService;
 import com.joyhill.demo.service.UserService;
 import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,10 +19,13 @@ public class UserController {
 
     private final UserService userService;
     private final AuthService authService;
+    private final GoogleSheetsSyncService googleSheetsSyncService;
 
-    public UserController(UserService userService, AuthService authService) {
+    public UserController(UserService userService, AuthService authService,
+                          GoogleSheetsSyncService googleSheetsSyncService) {
         this.userService = userService;
         this.authService = authService;
+        this.googleSheetsSyncService = googleSheetsSyncService;
     }
 
     // 현재 로그인 유저 정보
@@ -80,6 +84,13 @@ public class UserController {
     public BaseResponse<Void> updateAvatar(@AuthenticationPrincipal AuthUser authUser,
                                            @RequestBody AuthDtos.AvatarUpdateRequest request) {
         userService.updateAvatar(authUser, request.avatarKey());
+        return BaseResponse.success();
+    }
+
+    // 관리자 수동 트리거: 회원 정보를 구글시트로 백업/동기화
+    @PostMapping("/sync-sheet")
+    public BaseResponse<Void> syncSheet(@AuthenticationPrincipal AuthUser authUser) {
+        googleSheetsSyncService.syncNow(authUser);
         return BaseResponse.success();
     }
 }
