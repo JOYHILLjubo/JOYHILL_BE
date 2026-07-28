@@ -5,6 +5,7 @@ import com.google.api.services.sheets.v4.model.ClearValuesRequest;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.joyhill.demo.common.api.ErrorCode;
 import com.joyhill.demo.common.exception.ApiException;
+import com.joyhill.demo.common.util.PhoneUtils;
 import com.joyhill.demo.domain.Attendance;
 import com.joyhill.demo.domain.User;
 import com.joyhill.demo.repository.AttendanceRepository;
@@ -35,7 +36,8 @@ public class GoogleSheetsSyncService {
 
     private static final List<Object> HEADER = List.of(
             "이름", "역할", "마을", "팸", "전화번호", "생년월일",
-            "예배출석(참석)", "예배출석(기록수)", "팸모임출석(참석)", "팸모임출석(기록수)"
+            "예배출석(참석)", "예배출석(기록수)", "팸모임출석(참석)", "팸모임출석(기록수)",
+            "예배출석률", "팸모임출석률"
     );
 
     private final Sheets sheetsClient; // null이면 동기화 비활성화 상태
@@ -59,9 +61,9 @@ public class GoogleSheetsSyncService {
         this.accessGuard = accessGuard;
     }
 
-    // 관리자 수동 트리거
+    // 교역자/관리자 수동 트리거
     public void syncNow(AuthUser authUser) {
-        accessGuard.requireAdmin(authUser);
+        accessGuard.requirePastorOrAdmin(authUser);
         if (sheetsClient == null || spreadsheetId.isBlank()) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR,
                     "구글시트 연동이 설정되지 않았습니다. 서버에 서비스 계정 키와 스프레드시트 ID를 먼저 설정해주세요.");
@@ -103,9 +105,10 @@ public class GoogleSheetsSyncService {
                     u.getRole().name(),
                     orEmpty(u.getVillageName()),
                     orEmpty(u.getFamName()),
-                    u.getPhone(),
+                    orEmpty(PhoneUtils.format(u.getPhone())),
                     u.getBirth(),
-                    worshipAttended, worshipTotal, famAttended, famTotal
+                    worshipAttended, worshipTotal, famAttended, famTotal,
+                    percentString(worshipAttended, worshipTotal), percentString(famAttended, famTotal)
             ));
         }
 
@@ -125,5 +128,10 @@ public class GoogleSheetsSyncService {
 
     private static String orEmpty(String s) {
         return s == null ? "" : s;
+    }
+
+    private static String percentString(long attended, long total) {
+        if (total <= 0) return "-";
+        return Math.round(attended * 100.0 / total) + "%";
     }
 }
