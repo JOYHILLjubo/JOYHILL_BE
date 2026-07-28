@@ -8,6 +8,7 @@
 - 운영 DB: EC2 인스턴스 내 로컬 PostgreSQL(DB명 `joy`, 앱 접속 계정 `joy_user`)
 - 로컬 개발 DB: H2 in-memory (`application-local.yml`, `ddl-auto: update`)
 - 패키지 구조: `domain`(엔티티) / `repository` / `service` / `web`(컨트롤러) / `web.dto.AuthDtos`(요청 DTO record 전부 한 파일에 모음) / `security` / `common.api`(BaseResponse, ErrorCode)
+- 회원 정보를 전용 구글시트로 내보내는 백업 기능(`GoogleSheetsConfig`/`GoogleSheetsSyncService`)이 있음 — 서비스 계정 키/시트 ID가 `google.sheets.*`(`GOOGLE_SHEETS_CREDENTIALS_PATH`/`GOOGLE_SHEETS_SPREADSHEET_ID` env var)로 설정되기 전까진 조용히 비활성화됨. 관리자/교역자 수동 트리거(`POST /api/users/sync-sheet`) + 매일 새벽 3시 자동 동기화.
 
 ## 코드 컨벤션
 
@@ -17,6 +18,10 @@
 - 권한 체크는 `AccessGuard`에 메서드로 모아둠(`requirePastorOrAdmin`, `requireNoticeWriter` 등). 컨트롤러/서비스에서 role을 직접 비교하지 말고 여기 추가.
 - 에러는 `ApiException(ErrorCode, message)`로 던짐. `ErrorCode`에 없는 상태코드가 필요하면 enum에 추가.
 - 완전히 개인 소유 데이터(예: 설교노트)는 타인 데이터 접근 시 `FORBIDDEN`이 아니라 `NOT_FOUND`로 응답해서 존재 자체를 숨김(`SermonNoteService.getOwnedNote` 참고).
+
+## "값을 지운다"를 표현해야 하는 API는 null과 빈 문자열을 구분해서 쓸 것
+
+`OrganizationService.updateFamMember()`의 `famName` 필드가 이 패턴의 예시이자 함정: `request.famName() != null`을 "필드를 건드리지 않음(null)" vs "명시적으로 값을 지정함(빈 문자열 포함)"을 구분하는 게이트로 씀. 즉 `famName: ""`을 보내면 `isBlank() ? null : ...`을 타고 실제로 팸/마을을 지우고(미배정 처리), `famName: null`을 보내면(또는 필드 자체를 생략하면) 아무 일도 안 일어나고 조용히 무시됨 — **에러도 안 나고 다른 필드(이름/전화번호 등)는 정상 저장되기 때문에 프론트에서 실수로 `null`을 보내면 발견하기 매우 어려운 조용한 버그가 됨**(2026-07-28 확인: `VillageManagePageConnected.jsx`가 "미배정" 선택 시 `nullIfBlank(form.fam) || null`로 항상 `null`을 보내고 있어서 저장해도 실제로는 팸이 안 바뀌는 버그가 있었음, 프론트에서 빈 문자열을 그대로 보내도록 수정함). 이런 "지우기 vs 안 건드리기"를 구분해야 하는 필드를 새로 추가할 땐 이 패턴을 그대로 따르고, 프론트 쪽에서 값이 `null`로 뭉개지지 않는지 반드시 확인할 것.
 
 ## DB 스키마 변경 시 필수 절차 (중요)
 
@@ -29,6 +34,10 @@
 ## 운영 서버 확인/조작이 필요할 때
 
 **직접 SSH로 들어가지 않는다.** 이 프로젝트는 2026-07-15에 SSH 키 유출로 인스턴스 삭제 + DB 전체 유실 사고를 겪었고, 이후 에이전트의 직접 SSH 시도는 안전장치가 차단한다. 대신 기존 배포 시크릿(`EC2_HOST`/`EC2_USER`/`EC2_KEY`)을 재사용하는 `workflow_dispatch` 워크플로우를 만들어 사용자가 GitHub Actions에서 직접 실행 버튼을 누르게 하고, 결과는 `gh run view --log`로 읽는다. 예시: `.github/workflows/list-databases.yml`(DB 목록 조회), `check-backend-logs.yml`(에러 로그 확인).
+
+**민감한 환경변수(DB_PASSWORD, JWT_SECRET, GOOGLE_SHEETS_* 등)는 GitHub Actions secrets/`deploy.yml`이 아니라 EC2의 `/etc/systemd/system/joy-backend.service` 파일에 `Environment=KEY=value` 줄로 직접 박혀있다.** `deploy.yml`엔 애초에 env var 주입 로직이 없음 — 새 환경변수가 필요하면 `rotate-secrets.yml`/`setup-google-sheets.yml`처럼 systemd 유닛 파일을 `sed`로 고치고 `daemon-reload` + `restart`하는 workflow_dispatch 워크플로우를 새로 만드는 패턴을 따를 것.
+
+**workflow_dispatch 스크립트에서 "정상 기동" 헬스체크를 `curl ... | grep 200`처럼 정확히 200으로만 판정하지 말 것 (반복 발견된 오탐 패턴)**: `/api/users/birthdays` 같은 흔히 쓰는 헬스체크 대상 엔드포인트가 실제로는 인증이 필요해서 토큰 없이 호출하면 항상 401이 나옴 — `rotate-secrets.yml`과 `setup-google-sheets.yml` 둘 다 이 패턴으로 오탐 실패를 겪었음(서버는 정상 기동했는데 워크플로우만 실패로 표시됨). 올바른 판정: `CODE != "000"`(연결 자체는 됐음) `&& ${CODE:0:1} != "5"`(서버 에러 아님) — 401/403/404는 "서버가 응답은 하고 있다"는 뜻이라 정상. `setup-google-sheets.yml`에 이 방식으로 이미 수정 반영해뒀고, `rotate-secrets.yml`은 아직 예전 방식(`= "200"` 고정 체크)이라 재사용 전 같은 방식으로 고칠 것.
 
 ## 로컬 개발
 
