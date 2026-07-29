@@ -80,14 +80,14 @@ public class AccessGuard {
                     .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "팸을 찾을 수 없습니다."));
             if (fam.getVillageName().equals(user.villageName())) return;
         }
-        // leader, member 모두 본인 팸만 접근 가능
-        if (famName.equals(user.famName())) return;
+        // leader, member 모두 본인 팸만 접근 가능 (famName이 null이면 미배정 상태 — admin/pastor 외엔 접근 불가)
+        if (famName != null && famName.equals(user.famName())) return;
         throw new ApiException(ErrorCode.FORBIDDEN, "접근 범위를 벗어났습니다.");
     }
 
     public void requireVillageScope(AuthUser user, String villageName) {
         if (user.role() == Role.admin || user.role() == Role.pastor) return;
-        if (user.role() == Role.village_leader && villageName.equals(user.villageName())) return;
+        if (user.role() == Role.village_leader && villageName != null && villageName.equals(user.villageName())) return;
         throw new ApiException(ErrorCode.FORBIDDEN, "접근 범위를 벗어났습니다.");
     }
 }

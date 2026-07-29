@@ -75,10 +75,10 @@ public class CommunityPrayerService {
     public Map<String, Object> create(AuthUser authUser, String content) {
         String trimmed = content == null ? "" : content.trim();
         if (trimmed.isEmpty()) {
-            throw new IllegalArgumentException("기도제목을 입력해주세요.");
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "기도제목을 입력해주세요.");
         }
         if (trimmed.length() > MAX_CONTENT_LENGTH) {
-            throw new IllegalArgumentException("기도제목은 " + MAX_CONTENT_LENGTH + "자 이내로 입력해주세요.");
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "기도제목은 " + MAX_CONTENT_LENGTH + "자 이내로 입력해주세요.");
         }
         CommunityPrayer prayer = new CommunityPrayer();
         prayer.setUserId(authUser.userId());

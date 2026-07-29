@@ -1,5 +1,7 @@
 package com.joyhill.demo.service;
 
+import com.joyhill.demo.common.api.ErrorCode;
+import com.joyhill.demo.common.exception.ApiException;
 import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -85,7 +87,7 @@ public class S3Service {
                     .toOutputStream(out);
             return out.toByteArray();
         } catch (IOException e) {
-            throw new RuntimeException("이미지 압축 중 오류가 발생했습니다.", e);
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "이미지 파일을 처리할 수 없습니다. 손상되지 않은 이미지인지 확인해주세요.");
         }
     }
 
@@ -95,14 +97,14 @@ public class S3Service {
 
     private void validateImageFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("파일이 비어 있습니다.");
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "파일이 비어 있습니다.");
         }
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("이미지 파일만 업로드할 수 있습니다.");
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "이미지 파일만 업로드할 수 있습니다.");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("이미지 크기는 10MB 이하여야 합니다.");
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "이미지 크기는 30MB 이하여야 합니다.");
         }
     }
 }

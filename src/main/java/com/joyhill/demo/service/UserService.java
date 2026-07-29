@@ -121,7 +121,7 @@ public class UserService {
         User user = new User();
         user.setName(request.name());
         user.setPhone(normalizedPhone);
-        user.setBirth(request.birth());
+        user.setBirth(sanitizeBirth(request.birth()));
         user.setRole(request.role() != null ? request.role() : Role.member);
         user.setFamName(request.famName());
         user.setVillageName(request.villageName());
@@ -142,11 +142,25 @@ public class UserService {
         accessGuard.requireAdmin(authUser);
         User user = getUser(id);
         if (request.name() != null) user.setName(request.name());
-        if (request.phone() != null) user.setPhone(PhoneUtils.normalize(request.phone()));
-        if (request.birth() != null) user.setBirth(request.birth());
+        if (request.phone() != null) {
+            String normalizedPhone = PhoneUtils.normalize(request.phone());
+            if (userRepository.existsByPhoneAndIdNot(normalizedPhone, user.getId())) {
+                throw new ApiException(ErrorCode.DUPLICATE_PHONE, "이미 등록된 전화번호입니다.");
+            }
+            user.setPhone(normalizedPhone);
+        }
+        if (request.birth() != null) user.setBirth(sanitizeBirth(request.birth()));
         if (request.famName() != null) user.setFamName(request.famName());
         if (request.villageName() != null) user.setVillageName(request.villageName());
         return toMap(user);
+    }
+
+    // 숫자 외 문자 제거 후 YYMMDD(6자리)로 정규화 — 여기서 걸러두지 않으면 잘못된 형식이
+    // birthdaysThisMonth()의 Integer.parseInt에서 전체 목록 조회를 통째로 500으로 만듦
+    private String sanitizeBirth(String birth) {
+        if (birth == null || birth.isBlank()) return birth;
+        String digits = birth.replaceAll("\\D", "");
+        return digits.length() == 8 ? digits.substring(2) : digits.substring(0, Math.min(6, digits.length()));
     }
 
     public void changeRole(AuthUser authUser, Long id, AuthDtos.RoleUpdateRequest request) {
