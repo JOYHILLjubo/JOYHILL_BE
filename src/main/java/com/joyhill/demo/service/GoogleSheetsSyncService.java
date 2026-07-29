@@ -122,7 +122,8 @@ public class GoogleSheetsSyncService {
                     .execute();
             log.info("구글시트 동기화 완료: {}명", users.size());
         } catch (Exception e) {
-            throw new RuntimeException("구글시트 동기화 실패", e);
+            log.error("구글시트 동기화 실패", e);
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "구글시트 동기화에 실패했습니다. 잠시 후 다시 시도해주세요.");
         }
     }
 

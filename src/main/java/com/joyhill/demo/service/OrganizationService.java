@@ -220,8 +220,14 @@ public class OrganizationService {
         } else if (!isPastorOrAdmin && !leaderClaimingUnassigned) {
             accessGuard.requirePastorOrAdmin(authUser);
         }
-        user.setName(request.name());
-        if (request.phone() != null) user.setPhone(PhoneUtils.normalize(request.phone()));
+        if (request.name() != null && !request.name().isBlank()) user.setName(request.name());
+        if (request.phone() != null) {
+            String normalizedPhone = PhoneUtils.normalize(request.phone());
+            if (userRepository.existsByPhoneAndIdNot(normalizedPhone, user.getId())) {
+                throw new ApiException(ErrorCode.DUPLICATE_PHONE, "이미 등록된 전화번호입니다.");
+            }
+            user.setPhone(normalizedPhone);
+        }
         if (request.birth() != null && !request.birth().isBlank()) {
             String birthDigits = request.birth().replaceAll("\\D", "");
             // YYYYMMDD(8자리) 형태면 앞 2자리(세기) 제거 → YYMMDD(6자리)

@@ -12,6 +12,7 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByPhone(String phone);
     boolean existsByPhone(String phone);
+    boolean existsByPhoneAndIdNot(String phone, Long id);
 
     @Query("SELECT u FROM User u WHERE REPLACE(u.phone, '-', '') = :phone")
     Optional<User> findByPhoneNormalized(@Param("phone") String phone);
