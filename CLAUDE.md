@@ -8,7 +8,7 @@
 - 운영 DB: EC2 인스턴스 내 로컬 PostgreSQL(DB명 `joy`, 앱 접속 계정 `joy_user`)
 - 로컬 개발 DB: H2 in-memory (`application-local.yml`, `ddl-auto: update`)
 - 패키지 구조: `domain`(엔티티) / `repository` / `service` / `web`(컨트롤러) / `web.dto.AuthDtos`(요청 DTO record 전부 한 파일에 모음) / `security` / `common.api`(BaseResponse, ErrorCode)
-- 회원 정보를 전용 구글시트로 내보내는 백업 기능(`GoogleSheetsConfig`/`GoogleSheetsSyncService`)이 있음 — 서비스 계정 키/시트 ID가 `google.sheets.*`(`GOOGLE_SHEETS_CREDENTIALS_PATH`/`GOOGLE_SHEETS_SPREADSHEET_ID` env var)로 설정되기 전까진 조용히 비활성화됨. 관리자/교역자 수동 트리거(`POST /api/users/sync-sheet`) + 매일 새벽 3시 자동 동기화.
+- 회원 정보/출석 통계를 전용 구글시트로 내보내는 백업 기능(`GoogleSheetsConfig`/`GoogleSheetsSyncService`)이 있음 — 서비스 계정 키/시트 ID가 `google.sheets.*`(`GOOGLE_SHEETS_CREDENTIALS_PATH`/`GOOGLE_SHEETS_SPREADSHEET_ID` env var)로 설정되기 전까진 조용히 비활성화됨. **2026-07-31부터 회원 정보/출석 통계 두 탭으로 분리**: `POST /api/users/sync-sheet`(청년부 전체 관리 페이지, `google.sheets.tab-name` 기본 `회원백업`)와 `POST /api/attendance/sync-sheet`(출석 통계 페이지, `google.sheets.attendance-tab-name` 기본 `출석통계`)를 각각 트리거, 매일 새벽 3시 자동 동기화는 둘 다 독립적으로 실행(하나 실패해도 다른 하나는 진행). `values.clear`/`values.update`는 이미 존재하는 탭만 다룰 수 있어서, `writeRows()`가 쓰기 전에 `ensureTabExists()`로 대상 탭이 없으면 `batchUpdate(AddSheetRequest)`로 자동 생성함 — 새 탭을 스프레드시트에 미리 만들어둘 필요 없음.
 
 ## 코드 컨벤션
 
@@ -16,12 +16,20 @@
 - 응답 DTO를 별도 클래스로 안 만들고 서비스의 `private Map<String,Object> toMap(Entity e)`로 즉석 변환하는 패턴이 전역적으로 일관됨(`SermonService`, `CommunityPrayerService`, `SermonNoteService` 등). 새 기능 추가 시 이 패턴을 따를 것 — 갑자기 record 기반 응답 DTO를 새로 도입하지 말 것.
 - 요청 DTO는 전부 `AuthDtos.java`에 `record`로 모아둠(파일 하나, 섹션별 주석 구분).
 - 권한 체크는 `AccessGuard`에 메서드로 모아둠(`requirePastorOrAdmin`, `requireNoticeWriter` 등). 컨트롤러/서비스에서 role을 직접 비교하지 말고 여기 추가.
-- 에러는 `ApiException(ErrorCode, message)`로 던짐. `ErrorCode`에 없는 상태코드가 필요하면 enum에 추가.
+- 에러는 반드시 `ApiException(ErrorCode, message)`로 던질 것 — `IllegalArgumentException`/`RuntimeException` 등 다른 타입을 던지면 `GlobalExceptionHandler`의 catch-all(`@ExceptionHandler(Exception.class)`)이 그 메시지를 무시하고 항상 "서버 오류가 발생했습니다"로 덮어써서 500이 됨(2026-07-31, `S3Service`/`CommunityPrayerService`/`GoogleSheetsSyncService`에 있던 멀쩡한 한글 에러 메시지가 이렇게 묻혀서 응답에 안 실리고 있었음 — 셋 다 `ApiException`으로 교체해 수정). `ErrorCode`에 없는 상태코드가 필요하면 enum에 추가.
 - 완전히 개인 소유 데이터(예: 설교노트)는 타인 데이터 접근 시 `FORBIDDEN`이 아니라 `NOT_FOUND`로 응답해서 존재 자체를 숨김(`SermonNoteService.getOwnedNote` 참고).
 
 ## "값을 지운다"를 표현해야 하는 API는 null과 빈 문자열을 구분해서 쓸 것
 
 `OrganizationService.updateFamMember()`의 `famName` 필드가 이 패턴의 예시이자 함정: `request.famName() != null`을 "필드를 건드리지 않음(null)" vs "명시적으로 값을 지정함(빈 문자열 포함)"을 구분하는 게이트로 씀. 즉 `famName: ""`을 보내면 `isBlank() ? null : ...`을 타고 실제로 팸/마을을 지우고(미배정 처리), `famName: null`을 보내면(또는 필드 자체를 생략하면) 아무 일도 안 일어나고 조용히 무시됨 — **에러도 안 나고 다른 필드(이름/전화번호 등)는 정상 저장되기 때문에 프론트에서 실수로 `null`을 보내면 발견하기 매우 어려운 조용한 버그가 됨**(2026-07-28 확인: `VillageManagePageConnected.jsx`가 "미배정" 선택 시 `nullIfBlank(form.fam) || null`로 항상 `null`을 보내고 있어서 저장해도 실제로는 팸이 안 바뀌는 버그가 있었음, 프론트에서 빈 문자열을 그대로 보내도록 수정함). 이런 "지우기 vs 안 건드리기"를 구분해야 하는 필드를 새로 추가할 땐 이 패턴을 그대로 따르고, 프론트 쪽에서 값이 `null`로 뭉개지지 않는지 반드시 확인할 것.
+
+## unique 필드는 생성 경로뿐 아니라 수정 경로에도 중복 체크가 있어야 함
+
+`User.phone`은 `@Column(unique = true)`인데, `addFamMember()`(신규 등록)는 저장 전 `existsByPhone()`으로 중복 체크 후 `ApiException(DUPLICATE_PHONE)`을 던지지만, `OrganizationService.updateFamMember()`/`UserService.update()`(수정)는 이 체크 없이 바로 `setPhone()`하고 있었음(2026-07-31 발견) — 그래서 이미 등록된 번호로 수정하면 DB unique 제약 위반(`DataIntegrityViolationException`)이 위 catch-all 500으로 그대로 샘. `existsByPhoneAndIdNot(phone, id)`로 본인 제외 중복 체크를 추가해 수정. **unique 제약이 있는 필드를 다루는 API를 새로 추가/수정할 때, 생성 경로에 중복 체크가 있으면 수정 경로에도 반드시 대칭으로 넣을 것.**
+
+같은 점검에서 함께 발견/수정한 것들:
+- `AccessGuard.requireFamScope`/`requireVillageScope`가 `famName.equals(user.famName())` 식으로 **파라미터가 null이면 NPE**(500)가 났음 — 팸/마을 미배정 상태의 대상에 접근할 때 실제로 null이 들어올 수 있는 케이스였음. null 체크 추가해 정상적으로 403이 나가도록 수정.
+- `UserService.create()`/`update()`가 `birth`를 검증 없이 그대로 저장 — 형식이 이상한 값이 하나라도 들어가면 공개 API `GET /api/users/birthdays`가 **전체 회원을 한 스트림으로 조회하면서 `Integer.parseInt`에서 통째로 500**이 나서(한 사람 데이터가 전체 목록 조회를 깨뜨림) 영향 범위가 큼. `OrganizationService`가 이미 쓰던 "숫자만 추출 후 YYMMDD로 정규화" 로직을 그대로 가져와 적용.
 
 ## DB 스키마 변경 시 필수 절차 (중요)
 
