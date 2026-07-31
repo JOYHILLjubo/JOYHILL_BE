@@ -25,7 +25,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 청년부 회원 정보를 구글 스프레드시트로 내보내는 백업/참고용 동기화.
+ * 청년부 회원 정보 / 출석 통계를 구글 스프레드시트로 내보내는 백업/참고용 동기화.
+ * 청년부 전체 관리 페이지(회원 정보)와 출석 통계 페이지(출석 통계)에서 각각 별도로 트리거하고,
+ * 시트 탭도 분리되어 있음 — 관리 페이지에서 회원 정보만 바뀐 경우 출석 탭까지 매번 다시 쓸 필요는 없다는 판단.
  * 통계 컬럼은 AttendanceService.stats()의 정확한 분모(일요일 수 기준)와는 다르게,
  * 단순 "지금까지 기록된 출석 행 수" 기준의 근사치임 — 공식 통계 화면 용도가 아니라 참고용이라 이 정도 단순화로 충분함.
  */
@@ -34,64 +36,107 @@ public class GoogleSheetsSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleSheetsSyncService.class);
 
-    private static final List<Object> HEADER = List.of(
-            "이름", "역할", "마을", "팸", "전화번호", "생년월일",
+    private static final List<Object> MEMBER_HEADER = List.of(
+            "이름", "역할", "마을", "팸", "전화번호", "생년월일"
+    );
+
+    private static final List<Object> ATTENDANCE_HEADER = List.of(
+            "이름", "마을", "팸",
             "예배출석(참석)", "예배출석(기록수)", "팸모임출석(참석)", "팸모임출석(기록수)",
             "예배출석률", "팸모임출석률"
     );
 
     private final Sheets sheetsClient; // null이면 동기화 비활성화 상태
     private final String spreadsheetId;
-    private final String tabName;
+    private final String memberTabName;
+    private final String attendanceTabName;
     private final UserRepository userRepository;
     private final AttendanceRepository attendanceRepository;
     private final AccessGuard accessGuard;
 
     public GoogleSheetsSyncService(@Autowired(required = false) Sheets sheetsClient,
                                     @Value("${google.sheets.spreadsheet-id:}") String spreadsheetId,
-                                    @Value("${google.sheets.tab-name:회원백업}") String tabName,
+                                    @Value("${google.sheets.tab-name:회원백업}") String memberTabName,
+                                    @Value("${google.sheets.attendance-tab-name:출석통계}") String attendanceTabName,
                                     UserRepository userRepository,
                                     AttendanceRepository attendanceRepository,
                                     AccessGuard accessGuard) {
         this.sheetsClient = sheetsClient;
         this.spreadsheetId = spreadsheetId;
-        this.tabName = tabName;
+        this.memberTabName = memberTabName;
+        this.attendanceTabName = attendanceTabName;
         this.userRepository = userRepository;
         this.attendanceRepository = attendanceRepository;
         this.accessGuard = accessGuard;
     }
 
-    // 교역자/관리자 수동 트리거
-    public void syncNow(AuthUser authUser) {
+    // 교역자/관리자 수동 트리거 — 청년부 전체 관리 페이지: 회원 정보만
+    public void syncMembersNow(AuthUser authUser) {
         accessGuard.requirePastorOrAdmin(authUser);
+        requireConfigured();
+        syncMembers();
+    }
+
+    // 교역자/관리자 수동 트리거 — 출석 통계 페이지: 출석 통계만
+    public void syncAttendanceNow(AuthUser authUser) {
+        accessGuard.requirePastorOrAdmin(authUser);
+        requireConfigured();
+        syncAttendance();
+    }
+
+    private void requireConfigured() {
         if (sheetsClient == null || spreadsheetId.isBlank()) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR,
                     "구글시트 연동이 설정되지 않았습니다. 서버에 서비스 계정 키와 스프레드시트 ID를 먼저 설정해주세요.");
         }
-        sync();
     }
 
-    // 매일 새벽 3시 자동 동기화 — 설정 전에는 조용히 스킵
+    // 매일 새벽 3시 자동 동기화 — 설정 전에는 조용히 스킵, 회원/출석 각각 독립적으로 실패 처리
     @Scheduled(cron = "0 0 3 * * *")
     public void scheduledSync() {
         if (sheetsClient == null || spreadsheetId.isBlank()) {
             return;
         }
         try {
-            sync();
+            syncMembers();
         } catch (Exception e) {
-            log.error("구글시트 자동 동기화 실패", e);
+            log.error("구글시트 회원 정보 자동 동기화 실패", e);
+        }
+        try {
+            syncAttendance();
+        } catch (Exception e) {
+            log.error("구글시트 출석 통계 자동 동기화 실패", e);
         }
     }
 
     @Transactional(readOnly = true)
-    void sync() {
+    void syncMembers() {
+        List<User> users = userRepository.findAll();
+
+        List<List<Object>> rows = new ArrayList<>();
+        rows.add(MEMBER_HEADER);
+        for (User u : users) {
+            rows.add(List.of(
+                    u.getName(),
+                    u.getRole().name(),
+                    orEmpty(u.getVillageName()),
+                    orEmpty(u.getFamName()),
+                    orEmpty(PhoneUtils.format(u.getPhone())),
+                    u.getBirth()
+            ));
+        }
+
+        writeRows(memberTabName, rows, "회원 정보", users.size());
+    }
+
+    @Transactional(readOnly = true)
+    void syncAttendance() {
         List<User> users = userRepository.findAll();
         Map<Long, List<Attendance>> attendanceByUser = attendanceRepository.findAll().stream()
                 .collect(Collectors.groupingBy(Attendance::getUserId));
 
         List<List<Object>> rows = new ArrayList<>();
-        rows.add(HEADER);
+        rows.add(ATTENDANCE_HEADER);
 
         for (User u : users) {
             List<Attendance> records = attendanceByUser.getOrDefault(u.getId(), List.of());
@@ -102,16 +147,17 @@ public class GoogleSheetsSyncService {
 
             rows.add(List.of(
                     u.getName(),
-                    u.getRole().name(),
                     orEmpty(u.getVillageName()),
                     orEmpty(u.getFamName()),
-                    orEmpty(PhoneUtils.format(u.getPhone())),
-                    u.getBirth(),
                     worshipAttended, worshipTotal, famAttended, famTotal,
                     percentString(worshipAttended, worshipTotal), percentString(famAttended, famTotal)
             ));
         }
 
+        writeRows(attendanceTabName, rows, "출석 통계", users.size());
+    }
+
+    private void writeRows(String tabName, List<List<Object>> rows, String label, int userCount) {
         try {
             sheetsClient.spreadsheets().values()
                     .clear(spreadsheetId, tabName, new ClearValuesRequest())
@@ -120,9 +166,9 @@ public class GoogleSheetsSyncService {
                     .update(spreadsheetId, tabName + "!A1", new ValueRange().setValues(rows))
                     .setValueInputOption("RAW")
                     .execute();
-            log.info("구글시트 동기화 완료: {}명", users.size());
+            log.info("구글시트 {} 동기화 완료: {}명", label, userCount);
         } catch (Exception e) {
-            log.error("구글시트 동기화 실패", e);
+            log.error("구글시트 {} 동기화 실패", label, e);
             throw new ApiException(ErrorCode.VALIDATION_ERROR, "구글시트 동기화에 실패했습니다. 잠시 후 다시 시도해주세요.");
         }
     }

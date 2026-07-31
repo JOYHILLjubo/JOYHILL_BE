@@ -3,6 +3,7 @@ package com.joyhill.demo.web;
 import com.joyhill.demo.common.api.BaseResponse;
 import com.joyhill.demo.security.AuthUser;
 import com.joyhill.demo.service.AttendanceService;
+import com.joyhill.demo.service.GoogleSheetsSyncService;
 import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,9 +18,11 @@ import java.util.Map;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
+    private final GoogleSheetsSyncService googleSheetsSyncService;
 
-    public AttendanceController(AttendanceService attendanceService) {
+    public AttendanceController(AttendanceService attendanceService, GoogleSheetsSyncService googleSheetsSyncService) {
         this.attendanceService = attendanceService;
+        this.googleSheetsSyncService = googleSheetsSyncService;
     }
 
     @GetMapping
@@ -59,5 +62,12 @@ public class AttendanceController {
             @RequestParam(required = false) String villageName,
             @RequestParam(required = false) Integer year) {
         return BaseResponse.success(attendanceService.stats(authUser, scope, famName, villageName, year));
+    }
+
+    // 관리자 수동 트리거: 출석 통계를 구글시트로 백업/동기화 (출석 통계 페이지)
+    @PostMapping("/sync-sheet")
+    public BaseResponse<Void> syncSheet(@AuthenticationPrincipal AuthUser authUser) {
+        googleSheetsSyncService.syncAttendanceNow(authUser);
+        return BaseResponse.success();
     }
 }

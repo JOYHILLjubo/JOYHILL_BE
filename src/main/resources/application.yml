@@ -39,3 +39,4 @@ google:
     credentials-path: ${GOOGLE_SHEETS_CREDENTIALS_PATH:}
     spreadsheet-id: ${GOOGLE_SHEETS_SPREADSHEET_ID:}
     tab-name: ${GOOGLE_SHEETS_TAB_NAME:회원백업}
+    attendance-tab-name: ${GOOGLE_SHEETS_ATTENDANCE_TAB_NAME:출석통계}
