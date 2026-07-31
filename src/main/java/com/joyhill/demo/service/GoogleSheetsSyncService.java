@@ -1,7 +1,11 @@
 package com.joyhill.demo.service;
 
 import com.google.api.services.sheets.v4.Sheets;
+import com.google.api.services.sheets.v4.model.AddSheetRequest;
+import com.google.api.services.sheets.v4.model.BatchUpdateSpreadsheetRequest;
 import com.google.api.services.sheets.v4.model.ClearValuesRequest;
+import com.google.api.services.sheets.v4.model.Request;
+import com.google.api.services.sheets.v4.model.SheetProperties;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.joyhill.demo.common.api.ErrorCode;
 import com.joyhill.demo.common.exception.ApiException;
@@ -159,6 +163,7 @@ public class GoogleSheetsSyncService {
 
     private void writeRows(String tabName, List<List<Object>> rows, String label, int userCount) {
         try {
+            ensureTabExists(tabName);
             sheetsClient.spreadsheets().values()
                     .clear(spreadsheetId, tabName, new ClearValuesRequest())
                     .execute();
@@ -171,6 +176,20 @@ public class GoogleSheetsSyncService {
             log.error("구글시트 {} 동기화 실패", label, e);
             throw new ApiException(ErrorCode.VALIDATION_ERROR, "구글시트 동기화에 실패했습니다. 잠시 후 다시 시도해주세요.");
         }
+    }
+
+    // values.clear/update는 이미 존재하는 탭만 다룰 수 있어서, 새 탭 이름(예: attendance-tab-name 도입)이면
+    // 스프레드시트에 사람이 미리 탭을 만들어두지 않는 한 매번 실패함 — 없으면 여기서 자동 생성.
+    private void ensureTabExists(String tabName) throws java.io.IOException {
+        boolean exists = sheetsClient.spreadsheets().get(spreadsheetId).execute().getSheets().stream()
+                .anyMatch(sheet -> tabName.equals(sheet.getProperties().getTitle()));
+        if (exists) return;
+
+        sheetsClient.spreadsheets().batchUpdate(spreadsheetId, new BatchUpdateSpreadsheetRequest()
+                .setRequests(List.of(new Request().setAddSheet(
+                        new AddSheetRequest().setProperties(new SheetProperties().setTitle(tabName))
+                )))).execute();
+        log.info("구글시트 탭 '{}'이(가) 없어서 새로 생성함", tabName);
     }
 
     private static String orEmpty(String s) {
