@@ -87,10 +87,10 @@ public class UserController {
         return BaseResponse.success();
     }
 
-    // 관리자 수동 트리거: 회원 정보를 구글시트로 백업/동기화
+    // 관리자 수동 트리거: 회원 정보를 구글시트로 백업/동기화 (청년부 전체 관리 페이지)
     @PostMapping("/sync-sheet")
     public BaseResponse<Void> syncSheet(@AuthenticationPrincipal AuthUser authUser) {
-        googleSheetsSyncService.syncNow(authUser);
+        googleSheetsSyncService.syncMembersNow(authUser);
         return BaseResponse.success();
     }
 }
