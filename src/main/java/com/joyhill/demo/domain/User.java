@@ -64,6 +64,9 @@ public class User extends BaseTimeEntity {
     @Column(name = "avatar_key", length = 30)
     private String avatarKey;
 
+    @Column(name = "avatar_photo_url", length = 500)
+    private String avatarPhotoUrl;
+
     public Long getId() { return id; }
 
     public String getName() { return name; }
@@ -103,4 +106,7 @@ public class User extends BaseTimeEntity {
 
     public String getAvatarKey() { return avatarKey; }
     public void setAvatarKey(String avatarKey) { this.avatarKey = avatarKey; }
+
+    public String getAvatarPhotoUrl() { return avatarPhotoUrl; }
+    public void setAvatarPhotoUrl(String avatarPhotoUrl) { this.avatarPhotoUrl = avatarPhotoUrl; }
 }

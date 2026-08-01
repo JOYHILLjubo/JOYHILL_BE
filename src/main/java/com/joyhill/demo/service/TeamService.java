@@ -65,6 +65,7 @@ public class TeamService {
                 map.put("famName", user.getFamName());
                 map.put("role", user.getRole());
                 map.put("avatarKey", user.getAvatarKey());
+                map.put("avatarPhotoUrl", user.getAvatarPhotoUrl());
             });
             return map;
         }).sorted(Comparator.comparing(

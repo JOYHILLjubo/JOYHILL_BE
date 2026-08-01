@@ -13,6 +13,7 @@ import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.text.Collator;
 import java.time.LocalDate;
@@ -32,17 +33,19 @@ public class UserService {
     private final OrganizationService organizationService;
     private final AuthService authService;
     private final PasswordEncoder passwordEncoder;
+    private final S3Service s3Service;
 
     public UserService(UserRepository userRepository, TeamRoleRepository teamRoleRepository,
                        AccessGuard accessGuard,
                        OrganizationService organizationService, AuthService authService,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder, S3Service s3Service) {
         this.userRepository = userRepository;
         this.teamRoleRepository = teamRoleRepository;
         this.accessGuard = accessGuard;
         this.organizationService = organizationService;
         this.authService = authService;
         this.passwordEncoder = passwordEncoder;
+        this.s3Service = s3Service;
     }
 
     @Transactional(readOnly = true)
@@ -107,6 +110,7 @@ public class UserService {
         map.put("famName", user.getFamName());
         map.put("villageName", user.getVillageName());
         map.put("avatarKey", user.getAvatarKey());
+        map.put("avatarPhotoUrl", user.getAvatarPhotoUrl());
         map.put("day", day);
         map.put("isToday", day == currentDay);
         return map;
@@ -182,9 +186,27 @@ public class UserService {
         user.setPasswordChanged(false);
     }
 
-    public void updateAvatar(AuthUser authUser, String avatarKey) {
+    // avatarKey(성경 인물 아바타)와 avatarPhotoUrl(업로드한 내 사진)은 상호 배타적 — 하나를 적용하면 다른 하나는 지움(사진이면 S3 오브젝트도 삭제).
+    public void updateAvatar(AuthUser authUser, String avatarKey, String avatarPhotoUrl) {
         User user = getUser(authUser.userId());
-        user.setAvatarKey(avatarKey);
+        if (avatarPhotoUrl != null) {
+            if (user.getAvatarPhotoUrl() != null && !user.getAvatarPhotoUrl().equals(avatarPhotoUrl)) {
+                s3Service.delete(user.getAvatarPhotoUrl());
+            }
+            user.setAvatarPhotoUrl(avatarPhotoUrl);
+            user.setAvatarKey(null);
+        } else {
+            if (user.getAvatarPhotoUrl() != null) {
+                s3Service.delete(user.getAvatarPhotoUrl());
+            }
+            user.setAvatarPhotoUrl(null);
+            user.setAvatarKey(avatarKey);
+        }
+    }
+
+    // 본인 프로필 사진이라 role 제한 없음 — 인증(@AuthenticationPrincipal)만 있으면 누구나 자기 사진을 올릴 수 있음.
+    public String uploadAvatarPhoto(MultipartFile file) {
+        return s3Service.upload(file, "avatars");
     }
 
     private Map<String, Object> toMap(User user) {

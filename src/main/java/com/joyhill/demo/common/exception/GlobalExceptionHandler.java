@@ -9,6 +9,8 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -27,6 +29,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<BaseResponse<Void>> handleValidation(Exception e) {
         return ResponseEntity.badRequest()
                 .body(BaseResponse.error(ErrorCode.VALIDATION_ERROR, "입력값을 확인해주세요."));
+    }
+
+    // 파일 업로드(공지 이미지, 프로필 사진) 관련 — 안 잡으면 아래 catch-all이 전부 500으로 덮어씀
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<BaseResponse<Void>> handleUploadTooLarge(MaxUploadSizeExceededException e) {
+        return ResponseEntity.badRequest()
+                .body(BaseResponse.error(ErrorCode.VALIDATION_ERROR, "파일이 너무 큽니다. 30MB 이하로 올려주세요."));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMissingPart(MissingServletRequestPartException e) {
+        return ResponseEntity.badRequest()
+                .body(BaseResponse.error(ErrorCode.VALIDATION_ERROR, "업로드할 파일이 없습니다."));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
