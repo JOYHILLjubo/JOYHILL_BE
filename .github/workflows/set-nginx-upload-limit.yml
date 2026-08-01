@@ -1,0 +1,61 @@
+name: (9) Set nginx upload size limit (fix 413)
+
+# 프로필 사진/공지 이미지 업로드가 nginx의 client_max_body_size 기본값(1MB)에 막혀
+# 413 Payload Too Large로 실패하는 문제를 고친다. Spring 쪽 한도(max-request-size 32MB)에 맞춰
+# nginx도 32M으로 올린다. 멱등 — 이미 설정돼 있으면 값만 갱신한다.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  set-limit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Patch client_max_body_size and reload nginx
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            set -e
+            CONF=/etc/nginx/sites-available/joyhill
+            if [ ! -f "$CONF" ]; then
+              CONF=$(sudo readlink -f /etc/nginx/sites-enabled/joyhill)
+            fi
+            echo "=== target conf: $CONF ==="
+
+            echo "--- before ---"
+            sudo grep -n "client_max_body_size" "$CONF" || echo "(client_max_body_size 없음 → 기본값 1MB가 적용되고 있었음)"
+
+            sudo cp "$CONF" "${CONF}.bak.$(date +%Y%m%d%H%M%S)"
+
+            if sudo grep -q "client_max_body_size" "$CONF"; then
+              # 이미 있으면 값만 32M으로 갱신
+              sudo sed -i 's/client_max_body_size[[:space:]]\+[^;]*;/client_max_body_size 32M;/g' "$CONF"
+            else
+              # 없으면 server 블록 안 첫 줄에 삽입
+              sudo sed -i '0,/server[[:space:]]*{/s//server {\n    client_max_body_size 32M;/' "$CONF"
+            fi
+
+            echo "--- after ---"
+            sudo grep -n "client_max_body_size" "$CONF"
+
+            echo "=== nginx -t ==="
+            sudo nginx -t
+
+            echo "=== reload ==="
+            sudo systemctl reload nginx
+            sleep 2
+
+            echo "=== 확인: 적용된 실제 설정 ==="
+            sudo nginx -T 2>/dev/null | grep -n "client_max_body_size" || echo "(effective config에서 못 찾음)"
+
+            # 헬스체크: 401/403/404도 "서버가 응답하고 있다"는 뜻이라 정상으로 본다.
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" https://joyhill.kro.kr/api/users/birthdays || echo "000")
+            echo "healthcheck code: $CODE"
+            if [ "$CODE" = "000" ] || [ "${CODE:0:1}" = "5" ]; then
+              echo "서버 응답 이상 — 롤백이 필요할 수 있음(백업 파일 ${CONF}.bak.* 참고)"
+              exit 1
+            fi
+            echo "정상"
