@@ -9,6 +9,7 @@ import com.joyhill.demo.service.UserService;
 import com.joyhill.demo.web.dto.AuthDtos;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -83,8 +84,15 @@ public class UserController {
     @PatchMapping("/me/avatar")
     public BaseResponse<Void> updateAvatar(@AuthenticationPrincipal AuthUser authUser,
                                            @RequestBody AuthDtos.AvatarUpdateRequest request) {
-        userService.updateAvatar(authUser, request.avatarKey());
+        userService.updateAvatar(authUser, request.avatarKey(), request.avatarPhotoUrl());
         return BaseResponse.success();
+    }
+
+    // 내 사진 업로드 — S3에 올리고 URL만 반환(아직 저장 안 함, PATCH /me/avatar로 적용해야 실제 반영됨)
+    @PostMapping("/me/avatar-photo")
+    public BaseResponse<Map<String, Object>> uploadAvatarPhoto(@RequestParam("photo") MultipartFile photo) {
+        String url = userService.uploadAvatarPhoto(photo);
+        return BaseResponse.success(Map.of("avatarPhotoUrl", url));
     }
 
     // 관리자 수동 트리거: 회원 정보를 구글시트로 백업/동기화 (청년부 전체 관리 페이지)

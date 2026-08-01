@@ -144,6 +144,7 @@ public class PrayerService {
         userRepository.findById(prayer.getUserId()).ifPresent(user -> {
             map.put("name", user.getName());
             map.put("avatarKey", user.getAvatarKey());
+            map.put("avatarPhotoUrl", user.getAvatarPhotoUrl());
         });
         if (!map.containsKey("name")) map.put("name", "");
         return map;

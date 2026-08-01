@@ -140,6 +140,7 @@ public class SubTeamService {
                         m.put("famName", u.getFamName());
                         m.put("role", u.getRole());
                         m.put("avatarKey", u.getAvatarKey());
+                        m.put("avatarPhotoUrl", u.getAvatarPhotoUrl());
                     });
                     return m;
                 }).toList();
