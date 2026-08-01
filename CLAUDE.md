@@ -39,9 +39,21 @@
 2. 마이그레이션은 `sudo -u postgres psql -d "${{ vars.DB_NAME }}"`로 실행되므로 **새 테이블 소유자가 `postgres`가 됨**. 실제 앱은 `joy_user`로 접속하므로 반드시 `ALTER TABLE ... OWNER TO joy_user;` (+ identity 컬럼이 있으면 `ALTER SEQUENCE ..._id_seq OWNER TO joy_user;`)를 같이 넣을 것. 빠뜨리면 `permission denied for table` 500 에러가 남.
 3. 로컬(H2, `ddl-auto: update`)에서는 이 스텝 없이도 자동 생성되므로 로컬 테스트만으로는 이 문제를 못 잡는다 — 운영 배포 전 이 스텝을 반드시 챙길 것.
 
+## 파일 업로드(S3)가 실패할 때 — 세 겹으로 막힐 수 있다 (2026-08-01 프로필 사진 기능 붙이며 전부 겪음)
+
+업로드 경로는 `브라우저 → nginx → Spring → S3`인데, 각 구간마다 별개의 원인으로 막힐 수 있고 **증상(HTTP 코드)으로 구간을 구분할 수 있다**:
+
+1. **413 Payload Too Large = nginx 구간.** `client_max_body_size`가 설정돼 있지 않으면 기본값 **1MB**라 요청이 백엔드에 닿기도 전에 잘린다. `application.yml`의 `spring.servlet.multipart.max-file-size: 30MB`는 이 단계에서 아무 소용이 없다. 2026-08-01에 `.github/workflows/set-nginx-upload-limit.yml`로 32M으로 올림(`/etc/nginx/sites-available/joyhill`). **로컬에서는 절대 재현되지 않는다** — 로컬은 vite proxy가 8080으로 직접 붙어서 nginx를 안 거침. 413 응답은 본문이 JSON이 아니라 nginx HTML이라 프론트에서 `res.json()` 파싱이 실패하니, 상태코드로 따로 분기해야 사용자에게 원인을 보여줄 수 있다.
+2. **500 + `SdkClientException: Unable to load credentials ... InstanceProfileCredentialsProvider(): Failed to load credentials from IMDS` = EC2에 IAM Role이 안 붙어있음.** 코드 문제가 아니라 인프라 설정 문제다. **2026-07-15에 인스턴스를 새로 만들면서 S3 권한 Role이 재연결되지 않았고, 2026-08-01까지 그 상태였다**(그동안 새 인스턴스에서 아무도 파일 업로드를 안 해봐서 발견이 늦었음 — 공지 이미지 업로드도 같은 코드 경로라 동일하게 깨져 있었을 것). 해결은 AWS 콘솔에서 EC2 인스턴스에 S3 쓰기 권한 Role 연결(에이전트는 AWS API 권한이 없어 못 함). **AWS SDK는 자격증명 조회 실패를 프로세스 수명 동안 물고 갈 수 있으므로 Role 연결 후 백엔드 재시작이 필요하다** — `.github/workflows/restart-backend.yml` 사용.
+3. **그 외 500** = Spring 구간. `S3Service`의 검증/압축 단계는 전부 `ApiException`으로 400을 주므로(아래 ApiException 규칙 참고), 여기서 500이 나면 대개 S3 호출 자체가 실패한 것 — `check-backend-logs.yml`로 스택트레이스를 확인할 것.
+
+**이 인스턴스는 RAM이 908Mi로 매우 작아 백엔드 기동에 수십 초~수 분이 걸린다.** 재시작 직후 헬스체크가 502를 반환하는 건 정상적인 기동 지연일 수 있으니, 재시작 스크립트에서 고정 `sleep`으로 판정하지 말고 폴링할 것(현재 `restart-backend.yml`은 `sleep 15` 고정이라 기동 지연을 실패로 오판할 수 있음 — 개선 대상).
+
 ## 운영 서버 확인/조작이 필요할 때
 
-**직접 SSH로 들어가지 않는다.** 이 프로젝트는 2026-07-15에 SSH 키 유출로 인스턴스 삭제 + DB 전체 유실 사고를 겪었고, 이후 에이전트의 직접 SSH 시도는 안전장치가 차단한다. 대신 기존 배포 시크릿(`EC2_HOST`/`EC2_USER`/`EC2_KEY`)을 재사용하는 `workflow_dispatch` 워크플로우를 만들어 사용자가 GitHub Actions에서 직접 실행 버튼을 누르게 하고, 결과는 `gh run view --log`로 읽는다. 예시: `.github/workflows/list-databases.yml`(DB 목록 조회), `check-backend-logs.yml`(에러 로그 확인).
+**직접 SSH로 들어가지 않는다.** 이 프로젝트는 2026-07-15에 SSH 키 유출로 인스턴스 삭제 + DB 전체 유실 사고를 겪었고, 이후 에이전트의 직접 SSH 시도는 안전장치가 차단한다. 대신 기존 배포 시크릿(`EC2_HOST`/`EC2_USER`/`EC2_KEY`)을 재사용하는 `workflow_dispatch` 워크플로우를 만들어 사용자가 GitHub Actions에서 직접 실행 버튼을 누르게 하고, 결과는 `gh run view --log`로 읽는다. 워크플로우를 새로 만들면 **default 브랜치(main)에 머지되어야 dispatch가 가능**하다. 기존 워크플로우: `list-databases.yml`(DB 목록), `check-backend-logs.yml`(에러 로그 — 최근 20분 journal에서 ERROR/Exception 컨텍스트), `capture-server-config.yml`(nginx/systemd/cron 덤프), `check-disk-memory.yml`, `rotate-secrets.yml`, `setup-google-sheets.yml`, `set-nginx-upload-limit.yml`(업로드 크기 제한), `restart-backend.yml`(배포 없이 재시작).
+
+**`gh run view --log`로 결과를 읽을 때**, 로그 각 줄이 `<job>\t<step>\t<타임스탬프> <내용>` 형태라 스크립트 본문(에코된 명령어)과 실제 출력이 섞여 나온다. `sed 's/^<job>\t<step>\t//'`로 접두어를 벗기고 실제 출력 구간만 잘라 보는 게 편하다.
 
 **민감한 환경변수(DB_PASSWORD, JWT_SECRET, GOOGLE_SHEETS_* 등)는 GitHub Actions secrets/`deploy.yml`이 아니라 EC2의 `/etc/systemd/system/joy-backend.service` 파일에 `Environment=KEY=value` 줄로 직접 박혀있다.** `deploy.yml`엔 애초에 env var 주입 로직이 없음 — 새 환경변수가 필요하면 `rotate-secrets.yml`/`setup-google-sheets.yml`처럼 systemd 유닛 파일을 `sed`로 고치고 `daemon-reload` + `restart`하는 workflow_dispatch 워크플로우를 새로 만드는 패턴을 따를 것.
 
