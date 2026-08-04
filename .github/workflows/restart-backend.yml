@@ -20,24 +20,37 @@ jobs:
             set -e
             echo "=== restart ==="
             sudo systemctl restart joy-backend
-            sleep 15
 
             echo "=== service status ==="
             sudo systemctl is-active joy-backend
 
+            # 이 인스턴스는 RAM 908Mi라 기동이 15초를 넘기는 경우가 많다. 고정 sleep 뒤 한 번만
+            # 확인하면 "느린 기동"과 "진짜 장애"를 구분하지 못하고 매번 실패로 뜬다 — 서버가
+            # 응답할 때까지 폴링하고, 제한시간을 다 쓴 경우에만 실패로 판정한다.
+            # 401/403/404도 "서버가 응답하고 있다"는 뜻이라 정상으로 본다.
+            echo "=== 기동 대기 (최대 3분) ==="
+            UP=0
+            for i in $(seq 1 36); do
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" https://joyhill.kro.kr/api/users/birthdays || echo "000")
+              if [ "$CODE" != "000" ] && [ "${CODE:0:1}" != "5" ]; then
+                echo "기동 완료 — ${i}번째 시도(약 $((i * 5))초), healthcheck code: $CODE"
+                UP=1
+                break
+              fi
+              echo "  ${i}/36 대기 중... (code: $CODE)"
+              sleep 5
+            done
+
             echo "=== startup log ==="
-            sudo journalctl -u joy-backend --since "2 min ago" --no-pager | grep -E "Started DemoApplication|Tomcat started|APPLICATION FAILED" | tail -5 \
+            sudo journalctl -u joy-backend --since "5 min ago" --no-pager | grep -E "Started DemoApplication|Tomcat started|APPLICATION FAILED" | tail -5 \
               || echo "(기동 로그를 못 찾음 — 아래 에러 로그 확인)"
 
             echo "=== 기동 중 에러가 있었는지 ==="
-            sudo journalctl -u joy-backend --since "2 min ago" --no-pager | grep -iE "ERROR|Exception" | tail -20 \
+            sudo journalctl -u joy-backend --since "5 min ago" --no-pager | grep -iE "ERROR|Exception" | tail -20 \
               || echo "(에러 없음)"
 
-            # 헬스체크: 401/403/404도 "서버가 응답하고 있다"는 뜻이라 정상으로 본다.
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" https://joyhill.kro.kr/api/users/birthdays || echo "000")
-            echo "healthcheck code: $CODE"
-            if [ "$CODE" = "000" ] || [ "${CODE:0:1}" = "5" ]; then
-              echo "서버가 정상 응답하지 않음"
+            if [ "$UP" != "1" ]; then
+              echo "3분 동안 서버가 응답하지 않음 — 위 로그 확인"
               exit 1
             fi
             echo "정상 기동"
