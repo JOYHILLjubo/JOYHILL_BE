@@ -8,7 +8,9 @@
 - 운영 DB: EC2 인스턴스 내 로컬 PostgreSQL(DB명 `joy`, 앱 접속 계정 `joy_user`)
 - 로컬 개발 DB: H2 in-memory (`application-local.yml`, `ddl-auto: update`)
 - 패키지 구조: `domain`(엔티티) / `repository` / `service` / `web`(컨트롤러) / `web.dto.AuthDtos`(요청 DTO record 전부 한 파일에 모음) / `security` / `common.api`(BaseResponse, ErrorCode)
-- 회원 정보/출석 통계를 전용 구글시트로 내보내는 백업 기능(`GoogleSheetsConfig`/`GoogleSheetsSyncService`)이 있음 — 서비스 계정 키/시트 ID가 `google.sheets.*`(`GOOGLE_SHEETS_CREDENTIALS_PATH`/`GOOGLE_SHEETS_SPREADSHEET_ID` env var)로 설정되기 전까진 조용히 비활성화됨. **2026-07-31부터 회원 정보/출석 통계 두 탭으로 분리**: `POST /api/users/sync-sheet`(청년부 전체 관리 페이지, `google.sheets.tab-name` 기본 `회원백업`)와 `POST /api/attendance/sync-sheet`(출석 통계 페이지, `google.sheets.attendance-tab-name` 기본 `출석통계`)를 각각 트리거, 매일 새벽 3시 자동 동기화는 둘 다 독립적으로 실행(하나 실패해도 다른 하나는 진행). `values.clear`/`values.update`는 이미 존재하는 탭만 다룰 수 있어서, `writeRows()`가 쓰기 전에 `ensureTabExists()`로 대상 탭이 없으면 `batchUpdate(AddSheetRequest)`로 자동 생성함 — 새 탭을 스프레드시트에 미리 만들어둘 필요 없음.
+- 회원 정보/출석 통계를 전용 구글시트로 내보내는 백업 기능(`GoogleSheetsConfig`/`GoogleSheetsSyncService`)이 있음 — 서비스 계정 키/시트 ID가 `google.sheets.*`(`GOOGLE_SHEETS_CREDENTIALS_PATH`/`GOOGLE_SHEETS_SPREADSHEET_ID` env var)로 설정되기 전까진 조용히 비활성화됨. **2026-07-31부터 회원 정보/출석 통계 두 탭으로 분리**: `POST /api/users/sync-sheet`(청년부 전체 관리 페이지, `google.sheets.tab-name` 기본 `회원백업`)와 `POST /api/attendance/sync-sheet`(출석 통계 페이지, `google.sheets.attendance-tab-name` 기본 `출석통계`)를 각각 트리거, 매일 새벽 3시 자동 동기화는 둘 다 독립적으로 실행(하나 실패해도 다른 하나는 진행). `values.clear`/`values.update`는 이미 존재하는 탭만 다룰 수 있어서, `writeRows()`가 쓰기 전에 `ensureTabExists()`로 대상 탭이 없으면 `batchUpdate(AddSheetRequest)`로 자동 생성함 — 새 탭을 스프레드시트에 미리 만들어둘 필요 없음. 마지막 백업 시각은 `sheet_sync_logs` 테이블(백업 종류당 1행)에 남기고 `GET /api/{users,attendance}/sync-sheet`로 조회하며, **시트 쓰기 성공 이후에만 기록**해서 실패한 백업이 성공으로 남지 않게 함.
+
+**시각을 프론트로 내려줄 땐 `LocalDateTime.toString()`을 그대로 쓰지 말 것** — 타임존 정보가 없어서 브라우저의 `new Date()`가 자기 로컬 시간으로 해석해버린다. 서버가 UTC로 돌면 사용자(KST)에게 9시간 어긋난 시각이 보인다. `atZone(ZoneId.systemDefault()).toOffsetDateTime().toString()`으로 오프셋을 붙여 보낼 것(`2026-08-01T15:30:12+09:00`) — 그러면 서버 타임존이 뭐든 클라이언트가 정확히 변환한다.
 
 ## 코드 컨벤션
 
