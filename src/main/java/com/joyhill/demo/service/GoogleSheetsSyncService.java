@@ -11,8 +11,10 @@ import com.joyhill.demo.common.api.ErrorCode;
 import com.joyhill.demo.common.exception.ApiException;
 import com.joyhill.demo.common.util.PhoneUtils;
 import com.joyhill.demo.domain.Attendance;
+import com.joyhill.demo.domain.SheetSyncLog;
 import com.joyhill.demo.domain.User;
 import com.joyhill.demo.repository.AttendanceRepository;
+import com.joyhill.demo.repository.SheetSyncLogRepository;
 import com.joyhill.demo.repository.UserRepository;
 import com.joyhill.demo.security.AuthUser;
 import org.slf4j.Logger;
@@ -23,7 +25,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -56,7 +61,11 @@ public class GoogleSheetsSyncService {
     private final String attendanceTabName;
     private final UserRepository userRepository;
     private final AttendanceRepository attendanceRepository;
+    private final SheetSyncLogRepository sheetSyncLogRepository;
     private final AccessGuard accessGuard;
+
+    public static final String TYPE_MEMBERS = "members";
+    public static final String TYPE_ATTENDANCE = "attendance";
 
     public GoogleSheetsSyncService(@Autowired(required = false) Sheets sheetsClient,
                                     @Value("${google.sheets.spreadsheet-id:}") String spreadsheetId,
@@ -64,6 +73,7 @@ public class GoogleSheetsSyncService {
                                     @Value("${google.sheets.attendance-tab-name:출석통계}") String attendanceTabName,
                                     UserRepository userRepository,
                                     AttendanceRepository attendanceRepository,
+                                    SheetSyncLogRepository sheetSyncLogRepository,
                                     AccessGuard accessGuard) {
         this.sheetsClient = sheetsClient;
         this.spreadsheetId = spreadsheetId;
@@ -71,21 +81,50 @@ public class GoogleSheetsSyncService {
         this.attendanceTabName = attendanceTabName;
         this.userRepository = userRepository;
         this.attendanceRepository = attendanceRepository;
+        this.sheetSyncLogRepository = sheetSyncLogRepository;
         this.accessGuard = accessGuard;
     }
 
     // 교역자/관리자 수동 트리거 — 청년부 전체 관리 페이지: 회원 정보만
-    public void syncMembersNow(AuthUser authUser) {
+    public Map<String, Object> syncMembersNow(AuthUser authUser) {
         accessGuard.requirePastorOrAdmin(authUser);
         requireConfigured();
         syncMembers();
+        return status(authUser, TYPE_MEMBERS);
     }
 
     // 교역자/관리자 수동 트리거 — 출석 통계 페이지: 출석 통계만
-    public void syncAttendanceNow(AuthUser authUser) {
+    public Map<String, Object> syncAttendanceNow(AuthUser authUser) {
         accessGuard.requirePastorOrAdmin(authUser);
         requireConfigured();
         syncAttendance();
+        return status(authUser, TYPE_ATTENDANCE);
+    }
+
+    /** 마지막 백업 시각 조회 — 화면의 "마지막 백업: ..." 표시용. 한 번도 안 했으면 syncedAt이 null. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> status(AuthUser authUser, String syncType) {
+        accessGuard.requirePastorOrAdmin(authUser);
+        Map<String, Object> map = new HashMap<>();
+        map.put("syncType", syncType);
+        sheetSyncLogRepository.findBySyncType(syncType).ifPresentOrElse(syncLog -> {
+            // LocalDateTime.toString()은 타임존이 없어서 브라우저가 자기 로컬 시간으로 오해한다.
+            // 서버 타임존 오프셋을 붙여 보내야 클라이언트에서 정확한 시각으로 표시된다.
+            map.put("syncedAt", syncLog.getSyncedAt().atZone(ZoneId.systemDefault()).toOffsetDateTime().toString());
+            map.put("rowCount", syncLog.getRowCount());
+        }, () -> {
+            map.put("syncedAt", null);
+            map.put("rowCount", 0);
+        });
+        return map;
+    }
+
+    private void recordSync(String syncType, int rowCount) {
+        SheetSyncLog syncLog = sheetSyncLogRepository.findBySyncType(syncType)
+                .orElseGet(() -> new SheetSyncLog(syncType, LocalDateTime.now(), rowCount));
+        syncLog.setSyncedAt(LocalDateTime.now());
+        syncLog.setRowCount(rowCount);
+        sheetSyncLogRepository.save(syncLog);
     }
 
     private void requireConfigured() {
@@ -113,7 +152,7 @@ public class GoogleSheetsSyncService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     void syncMembers() {
         List<User> users = userRepository.findAll();
 
@@ -130,10 +169,10 @@ public class GoogleSheetsSyncService {
             ));
         }
 
-        writeRows(memberTabName, rows, "회원 정보", users.size());
+        writeRows(memberTabName, rows, "회원 정보", users.size(), TYPE_MEMBERS);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     void syncAttendance() {
         List<User> users = userRepository.findAll();
         Map<Long, List<Attendance>> attendanceByUser = attendanceRepository.findAll().stream()
@@ -158,10 +197,10 @@ public class GoogleSheetsSyncService {
             ));
         }
 
-        writeRows(attendanceTabName, rows, "출석 통계", users.size());
+        writeRows(attendanceTabName, rows, "출석 통계", users.size(), TYPE_ATTENDANCE);
     }
 
-    private void writeRows(String tabName, List<List<Object>> rows, String label, int userCount) {
+    private void writeRows(String tabName, List<List<Object>> rows, String label, int userCount, String syncType) {
         try {
             ensureTabExists(tabName);
             sheetsClient.spreadsheets().values()
@@ -171,6 +210,7 @@ public class GoogleSheetsSyncService {
                     .update(spreadsheetId, tabName + "!A1", new ValueRange().setValues(rows))
                     .setValueInputOption("RAW")
                     .execute();
+            recordSync(syncType, userCount);
             log.info("구글시트 {} 동기화 완료: {}명", label, userCount);
         } catch (Exception e) {
             log.error("구글시트 {} 동기화 실패", label, e);
