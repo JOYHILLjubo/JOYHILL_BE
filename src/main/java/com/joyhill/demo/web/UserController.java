@@ -96,9 +96,16 @@ public class UserController {
     }
 
     // 관리자 수동 트리거: 회원 정보를 구글시트로 백업/동기화 (청년부 전체 관리 페이지)
+    // 응답에 갱신된 마지막 백업 시각을 실어 보내서 프론트가 따로 다시 조회하지 않아도 되게 함
     @PostMapping("/sync-sheet")
-    public BaseResponse<Void> syncSheet(@AuthenticationPrincipal AuthUser authUser) {
-        googleSheetsSyncService.syncMembersNow(authUser);
-        return BaseResponse.success();
+    public BaseResponse<Map<String, Object>> syncSheet(@AuthenticationPrincipal AuthUser authUser) {
+        return BaseResponse.success(googleSheetsSyncService.syncMembersNow(authUser));
+    }
+
+    // 마지막 백업 시각 조회
+    @GetMapping("/sync-sheet")
+    public BaseResponse<Map<String, Object>> syncSheetStatus(@AuthenticationPrincipal AuthUser authUser) {
+        return BaseResponse.success(
+                googleSheetsSyncService.status(authUser, GoogleSheetsSyncService.TYPE_MEMBERS));
     }
 }
