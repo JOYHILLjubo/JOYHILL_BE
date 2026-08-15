@@ -134,8 +134,10 @@ public class GoogleSheetsSyncService {
         }
     }
 
-    // 매일 새벽 3시 자동 동기화 — 설정 전에는 조용히 스킵, 회원/출석 각각 독립적으로 실패 처리
-    @Scheduled(cron = "0 0 3 * * *")
+    // 매일 새벽 3시(KST) 자동 동기화 — 설정 전에는 조용히 스킵, 회원/출석 각각 독립적으로 실패 처리.
+    // zone을 명시하지 않으면 JVM 기본 타임존을 따르는데, 이 서버는 UTC로 돌고 있어서
+    // 실제로는 낮 12시(KST)에 실행되고 있었다. 사람들이 앱을 쓰는 시간대라 새벽으로 되돌림.
+    @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
     public void scheduledSync() {
         if (sheetsClient == null || spreadsheetId.isBlank()) {
             return;

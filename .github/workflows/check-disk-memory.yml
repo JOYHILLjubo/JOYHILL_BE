@@ -43,3 +43,29 @@ jobs:
             echo
             echo "==================== postgres key memory settings ===================="
             sudo -u postgres psql -c "SHOW shared_buffers;" -c "SHOW work_mem;" -c "SHOW max_connections;"
+            echo
+            echo "==================== 시스템 타임존 (cron/스케줄 해석 기준) ===================="
+            timedatectl 2>/dev/null || date
+            echo
+            echo "==================== journald 보관 상한 설정 ===================="
+            grep -vE '^\s*#|^\s*$' /etc/systemd/journald.conf 2>/dev/null || echo "(설정 없음 → 전부 기본값)"
+            echo "-- 기본값이면 SystemMaxUse가 디스크의 10%(최대 4G)까지 자람 --"
+            echo
+            echo "==================== nginx 로그 크기 ===================="
+            sudo ls -lhS /var/log/nginx/ 2>/dev/null | head -12 || echo "n/a"
+            echo
+            echo "==================== logrotate 설정 (nginx) ===================="
+            grep -vE '^\s*#|^\s*$' /etc/logrotate.d/nginx 2>/dev/null || echo "n/a"
+            echo
+            echo "==================== logrotate 마지막 실행 시각 ===================="
+            sudo grep -E "nginx|joyhill" /var/lib/logrotate/status 2>/dev/null | head -10 || echo "n/a"
+            echo
+            echo "==================== 로그 중 큰 파일 top 10 ===================="
+            sudo du -ah /var/log 2>/dev/null | sort -rh | head -10
+            echo
+            echo "==================== crontab (백업 스케줄 + 실제 실행 시각 확인용) ===================="
+            echo "--- ubuntu ---"; crontab -l 2>&1 | grep -vE '^\s*#' | grep -v '^$' || echo "(없음)"
+            echo "--- root ---"; sudo crontab -l 2>&1 | grep -vE '^\s*#' | grep -v '^$' || echo "(없음)"
+            echo
+            echo "==================== joy-backend JVM 힙 설정 ===================="
+            ps -eo cmd | grep "[j]ava" | head -3
