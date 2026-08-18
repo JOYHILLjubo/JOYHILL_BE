@@ -49,11 +49,23 @@
 2. **500 + `SdkClientException: Unable to load credentials ... InstanceProfileCredentialsProvider(): Failed to load credentials from IMDS` = EC2에 IAM Role이 안 붙어있음.** 코드 문제가 아니라 인프라 설정 문제다. **2026-07-15에 인스턴스를 새로 만들면서 S3 권한 Role이 재연결되지 않았고, 2026-08-01까지 그 상태였다**(그동안 새 인스턴스에서 아무도 파일 업로드를 안 해봐서 발견이 늦었음 — 공지 이미지 업로드도 같은 코드 경로라 동일하게 깨져 있었을 것). 해결은 AWS 콘솔에서 EC2 인스턴스에 S3 쓰기 권한 Role 연결(에이전트는 AWS API 권한이 없어 못 함). **AWS SDK는 자격증명 조회 실패를 프로세스 수명 동안 물고 갈 수 있으므로 Role 연결 후 백엔드 재시작이 필요하다** — `.github/workflows/restart-backend.yml` 사용.
 3. **그 외 500** = Spring 구간. `S3Service`의 검증/압축 단계는 전부 `ApiException`으로 400을 주므로(아래 ApiException 규칙 참고), 여기서 500이 나면 대개 S3 호출 자체가 실패한 것 — `check-backend-logs.yml`로 스택트레이스를 확인할 것.
 
+## 서버 타임존이 UTC다 — 스케줄을 다룰 땐 항상 이걸 전제할 것
+
+`timedatectl` 기준 시스템 타임존이 **`Etc/UTC`**다. 그래서 크론이든 `@Scheduled`든 **아무것도 지정하지 않으면 UTC로 해석된다.**
+
+- `@Scheduled(cron = "0 0 3 * * *")`처럼 `zone`을 빼면 **낮 12시(KST)** 에 돈다. 실제로 구글시트 자동 동기화가 그렇게 돌고 있었고, 2026-08-18에 `zone = "Asia/Seoul"`을 명시해서 고쳤다. **새 `@Scheduled`를 추가할 땐 반드시 `zone`을 명시할 것.**
+- 반대로 OS 크론탭은 UTC를 감안해 이미 맞춰져 있다 — `0 18 * * *`(=03:00 KST) DB 덤프, `15 18 * * *`(=03:15 KST) S3 업로드. 크론탭 시각을 읽을 땐 +9시간 해서 해석할 것.
+- 현재 스케줄이 겹치지 않게 03:00(덤프) → 03:15(업로드) → 03:30(시트 동기화) 순으로 배치돼 있다. RAM 908Mi라 동시에 돌리면 부담이므로 새 배치 작업을 넣을 때도 이 간격을 유지할 것.
+
+DB 시각을 프론트로 내려줄 때의 타임존 처리는 위 "구글시트" 항목 참고.
+
 **이 인스턴스는 RAM이 908Mi로 매우 작아 백엔드 기동에 수십 초~수 분이 걸린다.** 재시작 직후 헬스체크가 502를 반환하는 건 정상적인 기동 지연일 수 있으니, 재시작 스크립트에서 고정 `sleep`으로 판정하지 말고 **폴링**할 것 — `restart-backend.yml`이 5초 간격 최대 3분 폴링 방식으로 되어 있으니 새로 만들 때 이걸 복사해서 쓸 것. 위의 "정확히 200으로 판정하지 말 것"과 같은 계열의 오탐이지만, 그건 "상태코드를 잘못 봄"이고 이건 "너무 일찍 봄"이라는 차이가 있다. 둘 다 빨간 X가 반복되면 진짜 장애를 놓치게 되므로 판정 기준을 정확히 잡을 것.
 
 ## 운영 서버 확인/조작이 필요할 때
 
-**직접 SSH로 들어가지 않는다.** 이 프로젝트는 2026-07-15에 SSH 키 유출로 인스턴스 삭제 + DB 전체 유실 사고를 겪었고, 이후 에이전트의 직접 SSH 시도는 안전장치가 차단한다. 대신 기존 배포 시크릿(`EC2_HOST`/`EC2_USER`/`EC2_KEY`)을 재사용하는 `workflow_dispatch` 워크플로우를 만들어 사용자가 GitHub Actions에서 직접 실행 버튼을 누르게 하고, 결과는 `gh run view --log`로 읽는다. 워크플로우를 새로 만들면 **default 브랜치(main)에 머지되어야 dispatch가 가능**하다. 기존 워크플로우: `list-databases.yml`(DB 목록), `check-backend-logs.yml`(에러 로그 — 최근 20분 journal에서 ERROR/Exception 컨텍스트), `capture-server-config.yml`(nginx/systemd/cron 덤프), `check-disk-memory.yml`, `rotate-secrets.yml`, `setup-google-sheets.yml`, `set-nginx-upload-limit.yml`(업로드 크기 제한), `restart-backend.yml`(배포 없이 재시작).
+**직접 SSH로 들어가지 않는다.** 이 프로젝트는 2026-07-15에 SSH 키 유출로 인스턴스 삭제 + DB 전체 유실 사고를 겪었고, 이후 에이전트의 직접 SSH 시도는 안전장치가 차단한다. 대신 기존 배포 시크릿(`EC2_HOST`/`EC2_USER`/`EC2_KEY`)을 재사용하는 `workflow_dispatch` 워크플로우를 만들어 사용자가 GitHub Actions에서 직접 실행 버튼을 누르게 하고, 결과는 `gh run view --log`로 읽는다. 워크플로우를 새로 만들면 **default 브랜치(main)에 머지되어야 dispatch가 가능**하다. 기존 워크플로우: `list-databases.yml`(DB 목록), `check-backend-logs.yml`(에러 로그 — 최근 20분 journal에서 ERROR/Exception 컨텍스트), `capture-server-config.yml`(nginx/systemd/cron 덤프), `check-disk-memory.yml`(디스크·메모리·로그·타임존·크론탭 종합 점검), `rotate-secrets.yml`, `setup-google-sheets.yml`, `set-nginx-upload-limit.yml`(업로드 크기 제한), `restart-backend.yml`(배포 없이 재시작), `disk-cleanup.yml`(apt 캐시/구 커널), `setup-backup-s3-upload.yml`(DB 백업 S3 이중화 설정).
+
+**서버 상태를 바꾸는 워크플로우를 새로 만들 땐**: ①변경 전 상태를 먼저 출력하고, ②기존 파일은 `.bak.<타임스탬프>`로 백업하고, ③여러 번 돌려도 안전하도록 멱등하게 쓰고, ④끝에 헬스체크를 **폴링으로** 넣을 것(아래). 이미 잘 돌고 있는 것(`backup_db.sh`, 크론탭)은 직접 수정하지 말고 **별도 파일/줄을 추가하는 방식**을 택할 것 — 잘못 건드려 돌던 걸 깨뜨리는 게 제일 나쁜 결과다.
 
 **`gh run view --log`로 결과를 읽을 때**, 로그 각 줄이 `<job>\t<step>\t<타임스탬프> <내용>` 형태라 스크립트 본문(에코된 명령어)과 실제 출력이 섞여 나온다. `sed 's/^<job>\t<step>\t//'`로 접두어를 벗기고 실제 출력 구간만 잘라 보는 게 편하다.
 
