@@ -49,10 +49,23 @@ jobs:
             echo
             echo "==================== 서비스 정상 확인 ===================="
             sudo systemctl is-active joy-backend nginx postgresql
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" https://joyhill.kro.kr/api/users/birthdays || echo "000")
-            echo "healthcheck code: $CODE"
-            if [ "$CODE" = "000" ] || [ "${CODE:0:1}" = "5" ]; then
-              echo "서버가 정상 응답하지 않음"
+
+            # 정리 중 디스크 I/O가 몰리면 RAM 908Mi 인스턴스에서 백엔드가 잠깐 응답을 못 해
+            # 502가 날 수 있다. 단발 체크로 판정하면 멀쩡한 서버를 장애로 오판하므로 폴링한다
+            # (restart-backend.yml과 같은 방식). 401/403/404는 "응답은 하고 있다"는 뜻이라 정상.
+            echo "헬스체크 (최대 1분 폴링)"
+            UP=0
+            for i in $(seq 1 12); do
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" https://joyhill.kro.kr/api/users/birthdays || echo "000")
+              if [ "$CODE" != "000" ] && [ "${CODE:0:1}" != "5" ]; then
+                echo "정상 — ${i}번째 시도, code: $CODE"
+                UP=1
+                break
+              fi
+              echo "  ${i}/12 대기 중... (code: $CODE)"
+              sleep 5
+            done
+            if [ "$UP" != "1" ]; then
+              echo "1분 동안 서버가 응답하지 않음"
               exit 1
             fi
-            echo "정상"
