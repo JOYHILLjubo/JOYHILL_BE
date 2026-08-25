@@ -160,7 +160,7 @@ public class AuthService {
         return new AuthDtos.UserSummary(
                 user.getId(), user.getName(), user.getRole(),
                 user.getFamName(), user.getVillageName(),
-                teams, teamRoles, PhoneUtils.format(user.getPhone()),
+                teams, teamRoles, PhoneUtils.format(user.getPhone()), user.getBirth(),
                 user.isPasswordChanged(), user.getAvatarKey(), user.getAvatarPhotoUrl()
         );
     }
