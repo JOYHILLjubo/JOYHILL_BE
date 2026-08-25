@@ -81,6 +81,14 @@ public class UserController {
         return BaseResponse.success();
     }
 
+    // 본인 정보 수정(이름/전화번호/생년월일). 관리자용 PUT /{id}와 달리 권한 검사 대신
+    // 대상이 항상 본인으로 고정되고 바꿀 수 있는 항목도 제한된다.
+    @PatchMapping("/me")
+    public BaseResponse<Map<String, Object>> updateMe(@AuthenticationPrincipal AuthUser authUser,
+                                                      @RequestBody AuthDtos.MeUpdateRequest request) {
+        return BaseResponse.success(userService.updateMe(authUser, request));
+    }
+
     @PatchMapping("/me/avatar")
     public BaseResponse<Void> updateAvatar(@AuthenticationPrincipal AuthUser authUser,
                                            @RequestBody AuthDtos.AvatarUpdateRequest request) {

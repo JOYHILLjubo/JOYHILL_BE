@@ -14,14 +14,18 @@ public final class AuthDtos {
     public record LoginResponse(String accessToken, String refreshToken, UserSummary user) {}
     public record TokenResponse(String accessToken, String refreshToken) {}
 
+    // birth: 개인정보 수정 화면에서 본인 생년월일을 보여주고 고치기 위해 내려준다(YYMMDD 6자리).
     public record UserSummary(Long id, String name, Role role, String fam, String village,
-                              List<String> teams, List<String> teamRoles, String phone,
+                              List<String> teams, List<String> teamRoles, String phone, String birth,
                               boolean passwordChanged, String avatarKey, String avatarPhotoUrl) {}
 
     // ── User ──
     public record UserCreateRequest(String name, String phone, String birth, Role role,
                                     String famName, String villageName,
                                     List<String> teams, List<String> teamRoles) {}
+    // 본인이 자기 정보를 고칠 때 쓰는 요청 — 역할·소속은 일부러 뺐다(운영자가 정하는 값).
+    public record MeUpdateRequest(String name, String phone, String birth) {}
+
     public record UserUpdateRequest(String name, String phone, String birth,
                                     String famName, String villageName) {}
     public record RoleUpdateRequest(Role role) {}

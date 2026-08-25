@@ -159,6 +159,37 @@ public class UserService {
         return toMap(user);
     }
 
+    /**
+     * 본인이 자기 이름/전화번호/생년월일을 고친다(마이페이지 > 개인정보 수정).
+     *
+     * update()와 달리 관리자 권한을 요구하지 않는 대신, 대상이 반드시 본인이고 바꿀 수 있는 항목도
+     * 이 셋으로 제한된다 — 역할·소속(마을/팸)은 조직 운영자가 정하는 값이라 여기서 못 건드린다.
+     *
+     * 전화번호는 로그인 아이디이기도 해서, 바꾸면 다음 로그인부터 새 번호를 써야 한다.
+     * 중복 검사는 update()와 동일하게 건다.
+     */
+    public Map<String, Object> updateMe(AuthUser authUser, AuthDtos.MeUpdateRequest request) {
+        User user = getUser(authUser.userId());
+
+        if (request.name() != null) {
+            String trimmed = request.name().trim();
+            if (trimmed.isEmpty()) {
+                throw new ApiException(ErrorCode.VALIDATION_ERROR, "이름을 입력해주세요.");
+            }
+            user.setName(trimmed);
+        }
+        if (request.phone() != null) {
+            String normalizedPhone = PhoneUtils.normalize(request.phone());
+            if (userRepository.existsByPhoneAndIdNot(normalizedPhone, user.getId())) {
+                throw new ApiException(ErrorCode.DUPLICATE_PHONE, "이미 등록된 전화번호입니다.");
+            }
+            user.setPhone(normalizedPhone);
+        }
+        if (request.birth() != null) user.setBirth(sanitizeBirth(request.birth()));
+
+        return toMap(user);
+    }
+
     // 숫자 외 문자 제거 후 YYMMDD(6자리)로 정규화 — 여기서 걸러두지 않으면 잘못된 형식이
     // birthdaysThisMonth()의 Integer.parseInt에서 전체 목록 조회를 통째로 500으로 만듦
     private String sanitizeBirth(String birth) {
