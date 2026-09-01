@@ -49,6 +49,16 @@
 2. **500 + `SdkClientException: Unable to load credentials ... InstanceProfileCredentialsProvider(): Failed to load credentials from IMDS` = EC2에 IAM Role이 안 붙어있음.** 코드 문제가 아니라 인프라 설정 문제다. **2026-07-15에 인스턴스를 새로 만들면서 S3 권한 Role이 재연결되지 않았고, 2026-08-01까지 그 상태였다**(그동안 새 인스턴스에서 아무도 파일 업로드를 안 해봐서 발견이 늦었음 — 공지 이미지 업로드도 같은 코드 경로라 동일하게 깨져 있었을 것). 해결은 AWS 콘솔에서 EC2 인스턴스에 S3 쓰기 권한 Role 연결(에이전트는 AWS API 권한이 없어 못 함). **AWS SDK는 자격증명 조회 실패를 프로세스 수명 동안 물고 갈 수 있으므로 Role 연결 후 백엔드 재시작이 필요하다** — `.github/workflows/restart-backend.yml` 사용.
 3. **그 외 500** = Spring 구간. `S3Service`의 검증/압축 단계는 전부 `ApiException`으로 400을 주므로(아래 ApiException 규칙 참고), 여기서 500이 나면 대개 S3 호출 자체가 실패한 것 — `check-backend-logs.yml`로 스택트레이스를 확인할 것.
 
+## refresh token은 갱신할 때마다 회전하고, 유저당 딱 한 개만 유효하다
+
+`AuthService.refresh()`는 요청받은 refresh token을 검증한 뒤 **새로 발급하고, 그 해시를 `users.refresh_token` 컬럼에 덮어쓴다**(슬라이딩 만료 — 꾸준히 쓰는 한 재로그인이 없다). 즉 **직전 토큰은 그 즉시 무효**가 된다. 이 동작을 모르고 프론트를 고치면 로그인이 조용히 풀린다.
+
+- **프론트는 응답의 `refreshToken`을 반드시 저장해야 한다.** 안 하면(또는 저장한 걸 다른 코드가 덮어쓰면) 기기에는 이미 죽은 토큰만 남고, 다음에 앱을 켤 때 401이 나서 로그아웃된다. 2026-08-31에 실제로 이 버그가 있었다 — 원인과 대응은 `JOYHILL_FE/CLAUDE.md`의 "로그인 세션/토큰은 `src/api/session.js` 한 곳에서만" 절 참고.
+- **동시에 여러 번 갱신하면 하나만 살아남는다.** 화면이 API를 병렬로 부르다 401이 동시에 나면 갱신 요청도 동시에 나가는데, 먼저 도착한 쪽이 회전을 끝내는 순간 나머지는 무효한 토큰을 들고 있게 된다. 프론트에서 갱신 요청을 하나로 합쳐(single flight) 해결했다.
+- **토큰 슬롯이 컬럼 하나라 한 유저가 여러 기기를 동시에 쓸 수 없다.** 폰에서 로그인하면 PC 세션이 다음 실행 때 풀린다. 지금은 실사용상 큰 불편이 없어 그대로 두지만, 고치려면 기기별 refresh token 테이블이 필요하다(스키마 변경이라 별도 작업으로 미뤄둠).
+- 만료 기간은 `application.yml`의 `jwt.access-expiration`(30분) / `jwt.refresh-expiration`(90일). access token이 30분이라 **앱을 30분 넘게 켜두면 반드시 갱신 경로를 타게 된다** — 이 경로의 버그는 "가끔"처럼 보인다.
+- 쿠키(`JOY_REFRESH_TOKEN`)와 `X-Refresh-Token` 헤더를 둘 다 받는다. iOS PWA에서 쿠키가 유지되지 않는 경우가 있어 헤더를 폴백으로 둔 것이므로, 한쪽만 남기지 말 것.
+
 ## 서버 타임존이 UTC다 — 스케줄을 다룰 땐 항상 이걸 전제할 것
 
 `timedatectl` 기준 시스템 타임존이 **`Etc/UTC`**다. 그래서 크론이든 `@Scheduled`든 **아무것도 지정하지 않으면 UTC로 해석된다.**
